@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Custom Terminal</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #1e1e1e;
+            color: #ffffff;
+            font-family: Consolas, Monaco, monospace;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        .window-header {
+            background-color: #2d2d2d;
+            padding: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            -webkit-app-region: drag;
+        }
+        .window-title {
+            color: #fff;
+            font-size: 14px;
+            margin-left: 10px;
+            -webkit-app-region: no-drag;
+        }
+        .window-controls {
+            display: flex;
+            gap: 8px;
+            -webkit-app-region: no-drag;
+        }
+        .window-controls button {
+            width: 20px;
+            height: 20px;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+        }
+        .minimize { background-color: #ffbd2e; }
+        .maximize { background-color: #28c940; }
+        .close { background-color: #ff5f56; }
+
+        #output {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 10px;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        #input {
+            background-color: #000;
+            color: #ffffff;
+            border: none;
+            padding: 10px;
+            outline: none;
+            width: 100%;
+            box-sizing: border-box;
+            font-family: Consolas, Monaco, monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="window-header">
+        <div class="window-title">Terminal</div>
+        <div class="window-controls">
+            <button class="minimize" id="minimize">-</button>
+            <button class="maximize" id="maximize">□</button>
+            <button class="close" id="close">×</button>
+        </div>
+    </div>
+    <pre id="output"></pre>
+    <input type="text" id="input" autofocus>
+    <script>
+        const outputElement = document.getElementById('output');
+        const inputElement = document.getElementById('input');
+
+        window.terminal.onOutput((data) => {
+            console.log('Renderer received terminal output:', data);
+            outputElement.textContent += data;
+            outputElement.scrollTop = outputElement.scrollHeight;
+        });
+
+        inputElement.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                const command = inputElement.value;
+                console.log('Renderer sending terminal input:', command);
+                window.terminal.sendInput(command + '\n');
+                inputElement.value = '';
+            }
+        });
+
+        window.addEventListener('load', () => {
+            inputElement.focus();
+        });
+
+        // Window controls
+        document.getElementById('minimize').addEventListener('click', () => {
+            window.terminal.minimize();
+        });
+
+        document.getElementById('maximize').addEventListener('click', () => {
+            window.terminal.maximize();
+        });
+
+        document.getElementById('close').addEventListener('click', () => {
+            window.terminal.close();
+        });
+
+    </script>
+</body>
+</html> 

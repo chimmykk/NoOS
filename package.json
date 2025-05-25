@@ -10,11 +10,18 @@
   "license": "ISC",
   "dependencies": {
     "date-and-time": "^0.6.3",
-    "electron": "^7.2.4",
+    "electron": "^28.0.0",
     "got": "^9.6.0",
     "jsdom": "^15.1.1",
+    "node-pty": "^1.0.0",
     "systeminformation": "^3.49.3",
     "vol": "^3.0.0",
-    "wifi-list-windows": "^2.0.2"
+    "wifi-list-windows": "^2.0.2",
+    "xterm": "^5.3.0",
+    "xterm-addon-fit": "^0.8.0",
+    "xterm-addon-web-links": "^0.9.0"
+  },
+  "devDependencies": {
+    "electron-rebuild": "^3.2.9"
   }
 }

@@ -8,6 +8,11 @@ const jsdom = require('jsdom').JSDOM,
     options = {
     resources: "usable"
 };
+const { ipcRenderer } = require('electron');
+const { Terminal } = require('xterm');
+const { FitAddon } = require('xterm-addon-fit');
+const { WebLinksAddon } = require('xterm-addon-web-links');
+const { ipcMain } = require('electron');
 
 //for now this is how it opens or closes windows
 function openWindow(whichWindow){
@@ -28,14 +33,18 @@ function closeWindow(whichWindow) {
 
 $("#browserTab").attr("onclick",`openWindow('browser')`);
 
-wifiList((err, wifi) => {
-    if (err) throw err
-    if(wifi.length !== 0){
-        for(i = 0; i < wifi.length; i++){
-            $("#wifi").append(`<div class="inner-wifi">${wifi[i].ssid}<br><span>${wifi[i].authentication} &nbsp; ${Math.round(Number(wifi[i].signal)*100)}%</span></div>`);
+// Conditionalize wifiList for Windows
+const os = require('os');
+if (os.platform() === 'win32') {
+    wifiList((err, wifi) => {
+        if (err) throw err;
+        if(wifi.length !== 0){
+            for(i = 0; i < wifi.length; i++){
+                $("#wifi").append(`<div class="inner-wifi">${wifi[i].ssid}<br><span>${wifi[i].authentication} &nbsp; ${Math.round(Number(wifi[i].signal)*100)}%</span></div>`);
+            }
         }
-    }
-});
+    });
+}
 
 vol.get().then((level)=> {
     $("#level").html(Math.round(Number(level)*100));
@@ -173,7 +182,7 @@ $("#file_explorer").click(function(){
     });
 });
 
-$('body,html').click(function(){
+$('body,html').click(function(e){
     $("#wifi").addClass("animated zoomOut");
     $("#volume").addClass("animated zoomOut");
     setTimeout(() => {
@@ -184,4 +193,67 @@ $('body,html').click(function(){
         $("#wifi").css("display","none");
         $("#volume").css("display","none");
     },800);
+});
+
+// Wrap app icon listeners in DOMContentLoaded to ensure elements exist
+document.addEventListener('DOMContentLoaded', () => {
+    setupAppIconListeners();
+
+    // Function to set up event listeners for app icons
+    function setupAppIconListeners() {
+        document.getElementById('terminal-icon').addEventListener('click', () => {
+            console.log('Terminal icon clicked');
+            ipcRenderer.send('open:terminal');
+        });
+
+        document.getElementById('chrome-icon').addEventListener('click', () => {
+            console.log('Chrome icon clicked');
+            ipcRenderer.send('open:browser');
+        });
+
+        document.getElementById('synth-icon').addEventListener('click', () => {
+            console.log('Synth icon clicked');
+            ipcRenderer.send('open:synth');
+        });
+
+        document.getElementById('minesweeper-icon').addEventListener('click', () => {
+            console.log('Minesweeper icon clicked');
+            ipcRenderer.send('open:minesweeper');
+        });
+
+        // Add ShapeApps icon listener
+        document.getElementById('shapeapps-icon').addEventListener('click', () => {
+            console.log('ShapeApps icon clicked');
+            ipcRenderer.send('open:shapeapps');
+        });
+
+        // Add iPod icon listener
+        document.getElementById('ipod-icon').addEventListener('click', () => {
+            console.log('iPod icon clicked');
+            ipcRenderer.send('open:ipod');
+        });
+    }
+
+    // Terminal window controls
+    ipcMain.on('terminal:minimize', () => {
+        if (terminalWindow) {
+            terminalWindow.minimize();
+        }
+    });
+
+    ipcMain.on('terminal:maximize', () => {
+        if (terminalWindow) {
+            if (terminalWindow.isMaximized()) {
+                terminalWindow.unmaximize();
+            } else {
+                terminalWindow.maximize();
+            }
+        }
+    });
+
+    ipcMain.on('terminal:close', () => {
+        if (terminalWindow) {
+            terminalWindow.close();
+        }
+    });
 });
