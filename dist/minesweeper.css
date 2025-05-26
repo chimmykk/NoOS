@@ -1,0 +1,170 @@
+body {
+    margin: 0;
+    padding: 0;
+    background-color: #f0f0f0; /* Light background for game */
+    color: #333;
+    font-family: sans-serif;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden; /* Prevent scrolling */
+    align-items: center; /* Center content horizontally */
+}
+
+.window-header {
+    background-color: #cccccc;
+    padding: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    -webkit-app-region: drag;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    width: 100%; /* Make header full width */
+}
+
+.window-title {
+    color: #333;
+    font-size: 14px;
+    margin-left: 8px;
+    -webkit-app-region: no-drag;
+}
+
+.window-controls {
+    display: flex;
+    gap: 6px;
+    -webkit-app-region: no-drag;
+}
+
+.window-controls button {
+    width: 12px;
+    height: 12px;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    text-indent: -9999px;
+    overflow: hidden;
+    padding: 0; /* Remove default padding */
+}
+
+#minimizeBtn { background-color: #ffbd2e; }
+#maximizeBtn { background-color: #28c940; }
+#closeBtn { background-color: #ff5f56; }
+
+#game-container {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center; /* Center content horizontally */
+    /* Removed justify-content: center; to allow content to flow from top */
+    padding: 10px;
+}
+
+/* Styles for Game Controls */
+#game-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%; /* Or match board width */
+    padding: 10px 0;
+    margin-bottom: 10px; /* Space between controls and board */
+}
+
+#game-status {
+    font-size: 1em;
+    font-weight: bold;
+}
+
+#restart-button {
+    padding: 5px 10px;
+    font-size: 1em;
+    cursor: pointer;
+}
+
+/* Styles for the board container */
+#minesweeper-board {
+    display: grid; /* This will be set by JS, but good to have here */
+    /* gridTemplateColumns will be set dynamically in JS */
+    gap: 1px;
+    border: 3px solid #7b7b7b;
+    background-color: #7b7b7b;
+}
+
+.minesweeper-cell {
+    width: 30px;
+    height: 30px;
+    background-color: #c6c6c6;
+    border: 2px solid;
+    border-color: #ffffff #7b7b7b #7b7b7b #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    user-select: none;
+}
+
+.minesweeper-cell:not(.revealed):active {
+    border-color: #7b7b7b #ffffff #ffffff #7b7b7b; /* Pressed effect */
+}
+
+.minesweeper-cell.revealed {
+    background-color: #d9d9d9;
+    border-color: #b3b3b3;
+    cursor: default;
+}
+
+.minesweeper-cell.mine {
+    background-color: red;
+    color: white; /* Make mine icon visible */
+}
+
+.minesweeper-cell.flagged {
+    background-color: yellow; /* Or add a flag icon */
+    position: relative; /* For icon/text positioning */
+}
+
+.minesweeper-cell.flagged::before {
+    content: ''; /* Font Awesome Flag icon */
+    font-family: 'Font Awesome 5 Free'; /* Make sure Font Awesome is included in HTML if using this */
+    font-weight: 900; /* For solid icon */
+    color: black;
+}
+
+/* Styles for numbers */
+.minesweeper-cell.revealed[data-neighbor-mines="1"] { color: blue; }
+.minesweeper-cell.revealed[data-neighbor-mines="2"] { color: green; }
+.minesweeper-cell.revealed[data-neighbor-mines="3"] { color: red; }
+.minesweeper-cell.revealed[data-neighbor-mines="4"] { color: purple; }
+.minesweeper-cell.revealed[data-neighbor-mines="5"] { color: maroon; }
+.minesweeper-cell.revealed[data-neighbor-mines="6"] { color: teal; }
+.minesweeper-cell.revealed[data-neighbor-mines="7"] { color: black; }
+.minesweeper-cell.revealed[data-neighbor-mines="8"] { color: gray; }
+
+.minesweeper-cell.wrong-flag {
+    background-color: orange; /* Style for incorrectly flagged cells */
+    position: relative;
+}
+
+.minesweeper-cell.wrong-flag::after {
+    content: 'X'; /* Or a different indicator */
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: black; /* Color for the indicator */
+    font-size: 1.2em;
+}
+
+/* Style for the mine icon when revealed */
+.minesweeper-cell.mine::before {
+    content: ''; /* Font Awesome Bomb icon */
+    font-family: 'Font Awesome 5 Free';
+    font-weight: 900;
+    color: black; /* Color for the bomb icon */
+} 

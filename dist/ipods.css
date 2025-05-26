@@ -1,0 +1,189 @@
+@import url("https://fonts.googleapis.com/css?family=Roboto:400,500,700");
+
+body {
+    font-family: "Roboto", sans-serif;
+    background-color: #e4dcca;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-font-smoothing: antialiased;
+    height: 90vh;
+
+}
+
+button {
+    padding: 0;
+    border: 0;
+    background-color: transparent;
+    color: #90a19f;
+}
+
+.ipod-frame {
+    width: 170px;
+    height: 330px;
+    padding: 7px;
+    border: 4px solid #564b59;
+    background-color: #a7c5bd;
+    border-radius: 15px;
+}
+
+.ipod-frame .screen {
+    border-radius: 5px;
+    border: 4px solid #564b59;
+}
+
+.ipod-frame .screen .notification-bar {
+    background-color: #dadee0;
+    padding: 3px;
+    height: 15px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+    -webkit-app-region: drag;
+}
+
+.ipod-frame .screen .notification-bar button,
+.ipod-frame .screen .notification-bar .battery {
+    -webkit-app-region: no-drag;
+}
+
+.ipod-frame .screen .notification-bar .battery {
+    width: 14px;
+    height: 5px;
+    background-color: #a7c5bd;
+    border: 1px solid #564b59;
+    position: relative;
+    margin: 0 5px;
+}
+
+.ipod-frame .screen .notification-bar .battery:after {
+    content: "";
+    position: absolute;
+    width: 1px;
+    top: 0;
+    bottom: 0;
+    right: -2px;
+    background-color: #564b59;
+}
+
+#close-ipod-btn {
+    background-color: rgb(12, 177, 195) !important;
+    width: 20px !important;
+    height: 15px !important;
+    cursor: pointer !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    color: white !important;
+    padding: 0 !important;
+    border: none !important;
+}
+
+#close-ipod-btn .material-icons {
+    font-size: 12px !important;
+    color: white !important;
+}
+
+.ipod-frame .screen .menu {
+    margin: 0;
+    padding: 0 0 15px 0;
+    list-style-type: none;
+    background-color: #fff;
+}
+
+.ipod-frame .screen .menu li a {
+    padding: 2px 3px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.5em;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    color: #564b59;
+    font-weight: 600;
+}
+
+.ipod-frame .screen .menu li a span {
+    display: none;
+    color: #fff;
+}
+
+.ipod-frame .screen .menu li a:hover,
+.ipod-frame .screen .menu li a.active {
+    background-color: #e5856a;
+    color: #fff;
+}
+
+.ipod-frame .screen .menu li a:hover span,
+.ipod-frame .screen .menu li a.active span {
+    display: block;
+}
+
+.ipod-frame .control-panel {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 20px 0;
+}
+
+.ipod-frame .control-panel .nav-buttons {
+    width: 97px;
+    height: 97px;
+    border-radius: 50%;
+    background-color: #fff;
+    border: 3px solid #90a19f;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.ipod-frame .control-panel .nav-buttons .vertical-button {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    top: 5px;
+    bottom: 0;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.ipod-frame .control-panel .nav-buttons .vertical-button button {
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 9px;
+}
+
+.ipod-frame .control-panel .nav-buttons .vertical-button button i {
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.ipod-frame .control-panel .center-button {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: #a7c5bd;
+    border: 3px solid #90a19f;
+    cursor: pointer;
+    position: relative;
+    z-index: 9;
+}
+
+.ipod-frame .control-panel .horizontal-button {
+    position: absolute;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: space-between;
+}
+
+.ipod-frame .control-panel .horizontal-button button {
+    cursor: pointer;
+}
+
+.ipod-frame .control-panel .horizontal-button button i {
+    font-size: 18px;
+}
+
