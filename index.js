@@ -5,11 +5,12 @@ const os = require('os');
 const { spawn } = require('child_process');
 const fs = require('fs');
 const { shell } = require('electron');
-const { startServer } = require('./src/api/server');
+const { startServer } = require('./src/api/server'); // Ensure this path is correct
 const si = require('systeminformation');
 const vol = require('vol');
 const wifiList = require('wifi-list-windows');
 const axios = require('axios');
+const fetch = require('node-fetch');
 
 // Start the auth server
 startServer();
@@ -22,15 +23,15 @@ let shellProcess;
 let synthWindow;
 let minesweeperWindow;
 let ipodWindow;
-let videosWindow;
-let photosWindow;
+let videosWindow; // Declared but not used in provided snippet
+let photosWindow; // Declared but not used in provided snippet
 let shapeappsWindow;
-let browserWindow;
+let browserWindow; // This one is for the generic browser, distinct from the one opened by 'open:browser'
 
 function createMainWindow() {
     mainWindow = new BrowserWindow({
         frame: false,
-        icon: path.join(__dirname, './assets/img/icon.png'),
+        icon: path.join(__dirname, './assets/img/icon.png'), // Ensure this path is correct
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
@@ -39,7 +40,7 @@ function createMainWindow() {
         }
     });
     mainWindow.maximize();
-    mainWindow.loadFile('./dist/index.html');
+    mainWindow.loadFile('./dist/index.html'); // Ensure this path is correct
 
     // Remove default menu bar
     mainWindow.setMenu(null);
@@ -70,14 +71,12 @@ function createTerminalWindow() {
         }
     });
 
-    // Create a shell process
-    const shell = os.platform() === 'win32' ? 'powershell.exe' : process.env.SHELL || 'bash';
-    shellProcess = spawn(shell, [], {
+    const shellCmd = os.platform() === 'win32' ? 'powershell.exe' : (process.env.SHELL || 'bash');
+    shellProcess = spawn(shellCmd, [], { // Corrected variable name
         env: process.env,
         stdio: 'pipe'
     });
 
-    // Handle shell output
     shellProcess.stdout.on('data', (data) => {
         console.log('Main process sending stdout data:', data.toString());
         if (terminalWindow && !terminalWindow.isDestroyed()) {
@@ -92,28 +91,24 @@ function createTerminalWindow() {
         }
     });
 
-    shellProcess.on('exit', () => {
-        console.log('Shell process exited.');
+    shellProcess.on('exit', (code, signal) => {
+        console.log(`Shell process exited with code ${code} and signal ${signal}`);
         if (terminalWindow && !terminalWindow.isDestroyed()) {
-            terminalWindow.webContents.send('terminal-output', '\nShell process exited.\n');
+            terminalWindow.webContents.send('terminal-output', `\nShell process exited.\n`);
         }
-        shellProcess = null; // Clear reference on exit
+        shellProcess = null;
     });
 
-    // Handle terminal window close
     terminalWindow.on('closed', () => {
         console.log('Terminal window closed.');
         if (shellProcess) {
-            shellProcess.kill(); // Kill the shell process when window is closed
+            shellProcess.kill();
             shellProcess = null;
         }
-        terminalWindow = null; // Clear reference on close
+        terminalWindow = null;
     });
 
-    // Load terminal HTML
-    terminalWindow.loadFile('./dist/terminal.html');
-
-    // Optional: Open DevTools for terminal window
+    terminalWindow.loadFile('./dist/terminal.html'); // Ensure this path is correct
     // terminalWindow.webContents.openDevTools();
 }
 
@@ -122,7 +117,6 @@ function createSynthWindow() {
         synthWindow.focus();
         return;
     }
-
     synthWindow = new BrowserWindow({
         width: 600,
         height: 400,
@@ -133,16 +127,11 @@ function createSynthWindow() {
             nodeIntegration: false
         }
     });
-
-    synthWindow.loadFile('./dist/synth.html');
-
-    // Handle synth window close
+    synthWindow.loadFile('./dist/synth.html'); // Ensure this path is correct
     synthWindow.on('closed', () => {
         console.log('Synth window closed.');
-        synthWindow = null; // Clear reference on close
+        synthWindow = null;
     });
-
-    // Optional: Open DevTools for synth window
     // synthWindow.webContents.openDevTools();
 }
 
@@ -151,7 +140,6 @@ function createMinesweeperWindow() {
         minesweeperWindow.focus();
         return;
     }
-
     minesweeperWindow = new BrowserWindow({
         width: 400,
         height: 500,
@@ -162,22 +150,18 @@ function createMinesweeperWindow() {
             nodeIntegration: false
         }
     });
-
-    minesweeperWindow.loadFile('./dist/minesweeper.html');
-
-    // Handle Minesweeper window close
+    minesweeperWindow.loadFile('./dist/minesweeper.html'); // Ensure this path is correct
     minesweeperWindow.on('closed', () => {
         console.log('Minesweeper window closed.');
-        minesweeperWindow = null; // Clear reference on close
+        minesweeperWindow = null;
     });
-
-    // Optional: Open DevTools for Minesweeper window
     // minesweeperWindow.webContents.openDevTools();
 }
 
 function createShapeAppsWindow() {
     if (shapeappsWindow) {
         shapeappsWindow.show();
+        shapeappsWindow.focus();
         return;
     }
     shapeappsWindow = new BrowserWindow({
@@ -191,7 +175,7 @@ function createShapeAppsWindow() {
             preload: path.join(__dirname, 'preload.js')
         }
     });
-    shapeappsWindow.loadFile('dist/shapeapps.html');
+    shapeappsWindow.loadFile('dist/shapeapps.html'); // Ensure this path is correct
     shapeappsWindow.once('ready-to-show', () => {
         shapeappsWindow.show();
     });
@@ -203,6 +187,7 @@ function createShapeAppsWindow() {
 function createIpodWindow() {
     if (ipodWindow) {
         ipodWindow.show();
+        ipodWindow.focus();
         return;
     }
     ipodWindow = new BrowserWindow({
@@ -216,7 +201,7 @@ function createIpodWindow() {
             preload: path.join(__dirname, 'preload.js')
         }
     });
-    ipodWindow.loadFile('dist/ipods.html');
+    ipodWindow.loadFile('dist/ipods.html'); // Ensure this path is correct
     ipodWindow.once('ready-to-show', () => {
         ipodWindow.show();
     });
@@ -226,14 +211,15 @@ function createIpodWindow() {
 }
 
 function createChatWindow() {
-    const chatWindow = new BrowserWindow({
+    // Re-declare chatWindow here as it's function-scoped, or manage it globally if needed
+    let chatWindowInstance = new BrowserWindow({ // Renamed to avoid conflict if you have a global `chatWindow`
         width: 800,
         height: 600,
         frame: false,
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
-            sandbox: false,
+            sandbox: false, // Consider if sandbox: true is possible with your preload
             webSecurity: true,
             allowRunningInsecureContent: false,
             preload: path.join(__dirname, 'preload.js'),
@@ -241,25 +227,20 @@ function createChatWindow() {
         }
     });
 
-    // Load the chat window HTML file
-    chatWindow.loadFile('src/components/ChatWindow.html');
+    chatWindowInstance.loadFile('src/components/ChatWindow.html'); // Ensure this path is correct
 
-    // Show window when ready
-    chatWindow.once('ready-to-show', () => {
-        chatWindow.show();
+    chatWindowInstance.once('ready-to-show', () => {
+        chatWindowInstance.show();
     });
 
-    // Handle window close
-    chatWindow.on('closed', () => {
-        chatWindow = null;
+    chatWindowInstance.on('closed', () => {
+        chatWindowInstance = null; // Nullify the instance
     });
 
-    // Open DevTools in development mode
     if (process.env.NODE_ENV === 'development') {
-        chatWindow.webContents.openDevTools();
+        chatWindowInstance.webContents.openDevTools();
     }
-
-    return chatWindow;
+    return chatWindowInstance; // Return the instance if you need to manage it
 }
 
 app.whenReady().then(createMainWindow);
@@ -276,146 +257,78 @@ app.on('activate', () => {
     }
 });
 
-// IPC handler for opening embedded terminal
+// IPC Handlers
 ipcMain.on('open:terminal', createTerminalWindow);
-
-// IPC handler for terminal input (from renderer to main)
 ipcMain.on('terminal-input', (event, input) => {
     console.log('Main process received terminal input:', input);
     if (shellProcess && shellProcess.stdin.writable) {
         shellProcess.stdin.write(input);
     }
 });
-
-// IPC handlers for terminal window controls
-ipcMain.on('terminal:minimize', () => {
-    if (terminalWindow) {
-        terminalWindow.minimize();
-    }
-});
-
+ipcMain.on('terminal:minimize', () => terminalWindow?.minimize());
 ipcMain.on('terminal:maximize', () => {
     if (terminalWindow) {
-        if (terminalWindow.isMaximized()) {
-            terminalWindow.unmaximize();
-        } else {
-            terminalWindow.maximize();
-        }
+        terminalWindow.isMaximized() ? terminalWindow.unmaximize() : terminalWindow.maximize();
     }
 });
+ipcMain.on('terminal:close', () => terminalWindow?.close());
 
-ipcMain.on('terminal:close', () => {
-    if (terminalWindow) {
-        terminalWindow.close();
-    }
-});
-
-// IPC handler for opening Chrome (modified to accept URL)
 ipcMain.on('open:browser', (event, url) => {
     console.log('Main process received open:browser', url ? `with URL: ${url}` : '');
-    const browserWindow = new BrowserWindow({
+    const newBrowserWindow = new BrowserWindow({ // Create a new instance each time
         width: 1024,
         height: 768,
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true
+            // No preload needed if it's just displaying external content and not interacting via IPC
         }
     });
-
     const targetUrl = url && url !== '#' ? url : 'https://www.google.com';
-    browserWindow.loadURL(targetUrl);
+    newBrowserWindow.loadURL(targetUrl);
+    // newBrowserWindow becomes eligible for garbage collection when closed if not stored globally
 });
 
-// IPC handler for opening Synth
-ipcMain.on('open:synth', () => {
-    console.log('Main process received open:synth IPC message.');
-    createSynthWindow();
-});
+ipcMain.on('open:synth', createSynthWindow);
+ipcMain.on('open:minesweeper', createMinesweeperWindow);
+ipcMain.on('open:shapeapps', createShapeAppsWindow);
+ipcMain.on('open:ipod', createIpodWindow);
+ipcMain.on('open:chat', createChatWindow);
 
-// IPC handler for opening Minesweeper
-ipcMain.on('open:minesweeper', () => {
-    console.log('Main process received open:minesweeper IPC message.');
-    createMinesweeperWindow();
-});
-
-// Handle open:shapeapps IPC message
-ipcMain.on('open:shapeapps', () => {
-    console.log('Received open:shapeapps');
-    createShapeAppsWindow();
-});
-
-// Handle open:ipod IPC message
-ipcMain.on('open:ipod', () => {
-    console.log('Received open:ipod');
-    createIpodWindow();
-});
-
-// Handle open:chat IPC message
-ipcMain.on('open:chat', () => {
-    console.log('Received open:chat');
-    createChatWindow();
-});
-
-// Handle open-external-url IPC message
 ipcMain.on('open-external-url', (event, url) => {
     console.log('Received request to open external url:', url);
     shell.openExternal(url);
 });
 
-// IPC handlers for ShapeApps window controls
-ipcMain.on('shapeapps:minimize', () => {
-    if (shapeappsWindow) {
-        shapeappsWindow.minimize();
-    }
-});
+// Window control IPC handlers (ShapeApps, iPod, Synth, Minesweeper)
+['shapeapps', 'ipod', 'synth', 'minesweeper'].forEach(windowName => {
+    let windowInstance; // Will hold shapeappsWindow, ipodWindow, etc.
+    // A bit of a trick to get the actual window variable by its name string
+    // This is generally not recommended; better to pass the window object or use a map
+    // For this specific structure, we'll retrieve it when needed.
 
-ipcMain.on('shapeapps:maximize', () => {
-    if (shapeappsWindow) {
-        if (shapeappsWindow.isMaximized()) {
-            shapeappsWindow.unmaximize();
-        } else {
-            shapeappsWindow.maximize();
+    const getWindowInstance = () => {
+        if (windowName === 'shapeapps') return shapeappsWindow;
+        if (windowName === 'ipod') return ipodWindow;
+        if (windowName === 'synth') return synthWindow;
+        if (windowName === 'minesweeper') return minesweeperWindow;
+        return null;
+    };
+
+    ipcMain.on(`${windowName}:minimize`, () => getWindowInstance()?.minimize());
+    ipcMain.on(`${windowName}:maximize`, () => {
+        const win = getWindowInstance();
+        if (win) {
+            win.isMaximized() ? win.unmaximize() : win.maximize();
         }
-    }
+    });
+    ipcMain.on(`${windowName}:close`, () => getWindowInstance()?.close());
 });
 
-ipcMain.on('shapeapps:close', () => {
-    if (shapeappsWindow) {
-        shapeappsWindow.close();
-    }
-});
+ipcMain.on('close-ipod-window', () => ipodWindow?.close());
 
-// IPC handlers for iPod window controls
-ipcMain.on('ipod:minimize', () => {
-    if (ipodWindow) {
-        ipodWindow.minimize();
-    }
-});
 
-ipcMain.on('ipod:maximize', () => {
-    if (ipodWindow) {
-        if (ipodWindow.isMaximized()) {
-            ipodWindow.unmaximize();
-        } else {
-            ipodWindow.maximize();
-        }
-    }
-});
-
-ipcMain.on('ipod:close', () => {
-    if (ipodWindow) {
-        ipodWindow.close();
-    }
-});
-
-// IPC handler for closing the iPod window
-ipcMain.on('close-ipod-window', () => {
-    if (ipodWindow) {
-        ipodWindow.close();
-    }
-});
-
-// Create menu template
+// Menu Template
 const mainMenuTemplate = [
     {
         label: 'File',
@@ -423,15 +336,11 @@ const mainMenuTemplate = [
             {
                 label: 'Quit',
                 accelerator: process.platform === 'darwin' ? 'Command+Q' : 'Ctrl+Q',
-                click() {
-                    app.quit();
-                }
+                click() { app.quit(); }
             }
         ]
     }
 ];
-
-// Add developer tools menu item if not in production
 if (process.env.NODE_ENV !== 'production') {
     mainMenuTemplate.push({
         label: 'Developer Tools',
@@ -439,147 +348,74 @@ if (process.env.NODE_ENV !== 'production') {
             {
                 label: 'Toggle DevTools',
                 accelerator: process.platform === 'darwin' ? 'Command+I' : 'Ctrl+I',
-                click(item, focusedWindow) {
-                    focusedWindow.toggleDevTools();
-                }
+                click(item, focusedWindow) { focusedWindow?.toggleDevTools(); }
             },
-            {
-                role: 'reload'
-            }
+            { role: 'reload' }
         ]
     });
 }
-
-// Add macOS specific menu
 if (process.platform === 'darwin') {
     mainMenuTemplate.unshift({
-        label: 'NoOS',
+        label: app.getName(), // Use app name
         submenu: [
-            { role: 'about' },
-            { type: 'separator' },
-            { role: 'services' },
-            { type: 'separator' },
-            { role: 'hide' },
-            { role: 'hideOthers' },
-            { role: 'unhide' },
-            { type: 'separator' },
-            { role: 'quit' }
+            { role: 'about' }, { type: 'separator' }, { role: 'services' },
+            { type: 'separator' }, { role: 'hide' }, { role: 'hideOthers' },
+            { role: 'unhide' }, { type: 'separator' }, { role: 'quit' }
         ]
     });
 }
+// Build menu from template (but not setting it on mainWindow as it's frameless)
+// const mainMenu = Menu.buildFromTemplate(mainMenuTemplate);
+// Menu.setApplicationMenu(mainMenu); // Set application menu if you want it globally
 
-// IPC handlers for synth window controls
-ipcMain.on('synth:minimize', () => {
-    if (synthWindow) {
-        synthWindow.minimize();
-    }
-});
-
-ipcMain.on('synth:maximize', () => {
-    if (synthWindow) {
-        if (synthWindow.isMaximized()) {
-            synthWindow.unmaximize();
-        } else {
-            synthWindow.maximize();
-        }
-    }
-});
-
-ipcMain.on('synth:close', () => {
-    if (synthWindow) {
-        synthWindow.close();
-    }
-});
-
-// IPC handlers for Minesweeper window controls
-ipcMain.on('minesweeper:minimize', () => {
-    if (minesweeperWindow) {
-        minesweeperWindow.minimize();
-    }
-});
-
-ipcMain.on('minesweeper:maximize', () => {
-    if (minesweeperWindow) {
-        if (minesweeperWindow.isMaximized()) {
-            minesweeperWindow.unmaximize();
-        } else {
-            minesweeperWindow.maximize();
-        }
-    }
-});
-
-ipcMain.on('minesweeper:close', () => {
-    if (minesweeperWindow) {
-        minesweeperWindow.close();
-    }
-});
-
-
-
-// Handle volume control
+// Volume Control
 ipcMain.handle('volume:get', async () => {
     try {
         if (process.platform === 'darwin') {
             return new Promise((resolve, reject) => {
                 const { exec } = require('child_process');
-                exec('osascript -e "output volume of (get volume settings)"', (error, stdout, stderr) => {
-                    if (error) {
-                        console.error('Error getting volume:', error);
-                        reject(error);
-                        return;
-                    }
-                    const volume = parseInt(stdout.trim(), 10);
-                    resolve(volume / 100); // Convert to 0-1 range
+                exec('osascript -e "output volume of (get volume settings)"', (error, stdout) => {
+                    if (error) { console.error('Error getting volume (macOS):', error); reject(error); return; }
+                    resolve(parseInt(stdout.trim(), 10) / 100);
                 });
             });
         } else {
             return await vol.get();
         }
-    } catch (error) {
-        console.error('Error getting volume:', error);
-        return 0;
-    }
+    } catch (error) { console.error('Error getting volume:', error); return 0; }
 });
-
 ipcMain.on('volume:set', async (event, level) => {
     try {
+        const volumeLevel = Math.round(level * 100);
         if (process.platform === 'darwin') {
             const { exec } = require('child_process');
-            const volumeLevel = Math.round(level * 100);
-            exec(`osascript -e "set volume output volume ${volumeLevel}"`, (error, stdout, stderr) => {
-                if (error) {
-                    console.error('Error setting volume:', error);
-                    return;
-                }
-                event.reply('volume:level', volumeLevel);
+            exec(`osascript -e "set volume output volume ${volumeLevel}"`, (error) => {
+                if (error) { console.error('Error setting volume (macOS):', error); return; }
+                if (!event.sender.isDestroyed()) event.reply('volume:level', level); // Send back the original 0-1 level
             });
         } else {
             await vol.set(level);
-            event.reply('volume:level', Math.round(level * 100));
+            if (!event.sender.isDestroyed()) event.reply('volume:level', level); // Send back the original 0-1 level
         }
-    } catch (error) {
-        console.error('Error setting volume:', error);
-    }
+    } catch (error) { console.error('Error setting volume:', error); }
 });
 
-// Handle WiFi list
+// WiFi List
 ipcMain.handle('wifi:list', async () => {
     if (process.platform === 'win32') {
         return new Promise((resolve, reject) => {
-            wifiList((err, wifi) => {
-                if (err) {
-                    console.error('Error getting WiFi list:', err);
-                    reject(err);
-                } else {
-                    resolve(wifi);
-                }
+            wifiList((err, wifiNetworks) => { // Renamed variable
+                if (err) { console.error('Error getting WiFi list:', err); reject(err); }
+                else { resolve(wifiNetworks); }
             });
         });
     }
+    // For other platforms, you might want to implement or return empty/error
+    console.warn('wifi:list is only implemented for win32');
     return [];
 });
 
-// Handle time
+// Time
 ipcMain.handle('time:get', () => {
     const now = new Date();
     return {
@@ -588,110 +424,169 @@ ipcMain.handle('time:get', () => {
     };
 });
 
-// Handle browser:load-url
-ipcMain.on('browser:load-url', (event, url) => {
-    if (!browserWindow) {
+// Browser: Load URL in the dedicated 'browserWindow'
+ipcMain.on('browser:load-url', (event, urlToLoad) => {
+    if (!browserWindow || browserWindow.isDestroyed()) { // Check if destroyed
         browserWindow = new BrowserWindow({
             width: 1024,
             height: 768,
             webPreferences: {
                 nodeIntegration: false,
                 contextIsolation: true,
-                preload: path.join(__dirname, 'preload.js')
+                preload: path.join(__dirname, 'preload.js') // If this browser needs IPC
             }
         });
-
-        browserWindow.on('closed', () => {
-            browserWindow = null;
-        });
+        browserWindow.on('closed', () => { browserWindow = null; });
     }
-
-    browserWindow.loadURL(url);
+    browserWindow.loadURL(urlToLoad);
     browserWindow.show();
+    browserWindow.focus();
 });
 
-// Handle chat-related IPC messages
+// Chat related IPC Handlers
 ipcMain.handle('chat:get-messages', async (event, { contactId }) => {
-    // In a real app, this would fetch messages from a database
-    return [];
+    console.log(`Workspaceing messages for contactId: ${contactId}`);
+    // Replace with actual database/storage logic
+    return []; // Placeholder
 });
 
-ipcMain.handle('chat:get-contacts', async (event) => {
-    // In a real app, this would fetch contacts from a database
+ipcMain.handle('chat:get-contacts', async () => {
+    console.log("Fetching contacts");
+    // Replace with actual database/storage logic
     return [
         { id: "tenshi", name: "Tenshi", avatar: "/avatars/tenshi.png", status: "online" },
         { id: "bidya", name: "Bidya", avatar: "/avatars/bidya.png", status: "away", lastSeen: "online" },
-    ];
+    ]; // Placeholder
 });
 
-ipcMain.handle('chat:get-user-info', async (event) => {
-    // In a real app, this would fetch user info from a database
+ipcMain.handle('chat:get-user-info', async () => {
+    console.log("Fetching user info");
+    // Replace with actual database/storage logic
     return {
-        id: "user_123",
+        id: "user_123", // This will be the appId for the API
         name: "Current User",
-        avatar: "/avatars/user.png",
+        avatar: "/avatars/user.png", // Ensure these avatar paths are accessible by renderer
         status: "online"
-    };
+    }; // Placeholder
 });
 
-ipcMain.on('chat:send-message', async (event, { contactId, message }) => {
+ipcMain.on('chat:send-message', async (event, { contactId, message, authToken }) => {
+    const MODEL_PREFIX = "shapesinc/";
+    const API_BASE_URL = "https://api.shapes.inc/v1";
+    const APP_ID = "f6263f80-2242-428d-acd4-10e1feec44ee"; // <-- Hardcoded App ID
+    const fullModelName = `${MODEL_PREFIX}${contactId}`;
+
+    const messages = [{ role: "user", content: message }];
+
     try {
-        // In a real app, this would send the message to a server
-        // For now, we'll simulate a response
-        const response = {
-            id: `msg_${Date.now()}`,
-            senderId: contactId,
-            text: `Echo: ${message}`,
-            timestamp: new Date(),
-            isRead: false
-        };
-        
-        // Send the response back to the renderer
-        event.reply('chat:message-received', response);
-    } catch (error) {
-        console.error('Error sending message:', error);
+        console.log("Sending to API:", {
+            url: `${API_BASE_URL}/chat/completions`,
+            headers: {
+                "Content-Type": "application/json",
+                "X-App-ID": APP_ID,
+                "X-User-Auth": authToken,
+            },
+            body: {
+                model: fullModelName,
+                messages,
+            }
+        });
+        const response = await axios.post(
+            `${API_BASE_URL}/chat/completions`,
+            {
+                model: fullModelName,
+                messages,
+            },
+            {
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-App-ID": APP_ID, // <-- Use hardcoded App ID here
+                    "X-User-Auth": authToken,
+                },
+            }
+        );
+
+        const data = response.data;
+
+        if (data.choices && data.choices.length > 0) {
+            const botReplyContent = data.choices[0].message.content;
+            const botReplyMessage = {
+                id: `msg-${Date.now()}-bot`,
+                senderId: contactId,
+                text: botReplyContent,
+                timestamp: new Date(),
+                isRead: false,
+            };
+            if (!event.sender.isDestroyed()) {
+                event.sender.send('chat:message-received', botReplyMessage);
+            }
+        } else {
+            const errorMsg = data.message || data.error?.message || "Failed to get response from chat API.";
+            if (!event.sender.isDestroyed()) {
+                event.sender.send('chat:message-received', {
+                    id: `err-${Date.now()}-bot`,
+                    senderId: contactId,
+                    text: errorMsg,
+                    timestamp: new Date(),
+                    isRead: false,
+                    error: true
+                });
+            }
+        }
+    } catch (err) {
+        if (!event.sender.isDestroyed()) {
+            event.sender.send('chat:message-received', {
+                id: `err-${Date.now()}-bot`,
+                senderId: contactId,
+                text: `Network error: ${err.message || "Could not connect to the chat service."}`,
+                timestamp: new Date(),
+                isRead: false,
+                error: true
+            });
+        }
     }
 });
 
 ipcMain.on('chat:add-contact', async (event, contact) => {
-    try {
-        // In a real app, this would add the contact to a database
-        event.reply('chat:contact-updated', contact);
-    } catch (error) {
-        console.error('Error adding contact:', error);
-    }
+    console.log("Adding contact:", contact);
+    // Replace with actual database/storage logic
+    // For demo, just echo back, assuming success
+    if (!event.sender.isDestroyed()) event.reply('chat:contact-updated', contact); // Send full contact back
 });
 
 ipcMain.on('chat:remove-contact', async (event, contactId) => {
-    try {
-        // In a real app, this would remove the contact from a database
-        event.reply('chat:contact-updated', { id: contactId, removed: true });
-    } catch (error) {
-        console.error('Error removing contact:', error);
-    }
+    console.log("Removing contact:", contactId);
+    // Replace with actual database/storage logic
+    if (!event.sender.isDestroyed()) event.reply('chat:contact-updated', { id: contactId, removed: true });
 });
 
 ipcMain.on('chat:update-status', async (event, { status }) => {
-    try {
-        // In a real app, this would update the user's status in a database
-        event.reply('chat:status-changed', { status });
-    } catch (error) {
-        console.error('Error updating status:', error);
-    }
+    console.log("Updating user status:", status);
+    // Replace with actual database/storage logic
+    if (!event.sender.isDestroyed()) event.reply('chat:status-changed', { status });
 });
 
 // Auth exchange code handler
 ipcMain.handle('auth:exchange-code', async (event, oneTimeCode) => {
+    console.log("Exchanging code for auth token:", oneTimeCode);
+    if (!oneTimeCode) {
+        return { error: 'No one-time code provided.' };
+    }
     try {
-        // app_id is hardcoded on the server, so just send code
         const response = await axios.post('http://localhost:3001/auth/nonce', { code: oneTimeCode });
         if (response.data && response.data.auth_token) {
+            console.log("Auth token received successfully.");
             return { auth_token: response.data.auth_token };
         } else {
-            return { error: response.data.message || 'Failed to exchange code for token.' };
+            console.error("Failed to exchange code:", response.data);
+            return { error: response.data?.message || 'Failed to exchange code for token.' };
         }
     } catch (error) {
-        console.error('Error in auth:exchange-code:', error);
-        return { error: error.message || 'Unexpected error' };
+        console.error('Error in auth:exchange-code:', error.response?.data || error.message);
+        return { error: error.response?.data?.message || error.message || 'Unexpected error during token exchange.' };
     }
 });
+
+// Ensure all paths to HTML files (dist/index.html, dist/terminal.html, etc.)
+// and assets (assets/img/icon.png) are correct relative to your project structure.
+// Ensure './src/api/server' path is correct.

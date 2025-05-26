@@ -182,6 +182,7 @@ const handleCodeSubmit = async () => {
         setMessageSendError(null);
         setIsSendingMessage(true);
 
+        // Optimistically add the message to the UI
         const userMessage = {
             id: `msg-${Date.now()}-user`,
             senderId: currentUser.id,
@@ -196,55 +197,15 @@ const handleCodeSubmit = async () => {
         }));
         setMessageText("");
 
-        const fullModelName = `${MODEL_PREFIX}${activeContact}`;
-        const conversationHistory = (messages[activeContact] || []).map(msg => ({
-            role: msg.senderId === currentUser.id ? "user" : "assistant",
-            content: msg.text
-        }));
+        // Send message via IPC to main process
+        window.api.send('chat:send-message', {
+            contactId: activeContact,
+            message: messageText,
+            authToken,
+            appId: currentUser.id
+        });
 
-        try {
-            const response = await fetch(`${API_BASE_URL}/chat/completions`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-App-ID": currentUser.id,
-                    "X-User-Auth": authToken,
-                },
-                body: JSON.stringify({
-                    model: fullModelName,
-                    messages: [...conversationHistory, { role: "user", content: userMessage.text }],
-                }),
-            });
-
-            const data = await response.json();
-
-            if (response.status === 401) {
-                setMessageSendError("Authentication failed. Please log in again.");
-                performLogout();
-            } else if (response.status === 429) {
-                setMessageSendError("Rate limit exceeded. Please try again later.");
-            } else if (response.ok && data.choices && data.choices.length > 0) {
-                const botReplyContent = data.choices[0].message.content;
-                const botReplyMessage = {
-                    id: `msg-${Date.now()}-bot`,
-                    senderId: activeContact,
-                    text: botReplyContent,
-                    timestamp: new Date(),
-                    isRead: false,
-                };
-
-                setMessages((prev) => ({
-                    ...prev,
-                    [activeContact]: [...(prev[activeContact] || []), botReplyMessage],
-                }));
-            } else {
-                throw new Error(data.error || "Failed to get response from bot");
-            }
-        } catch (error) {
-            setMessageSendError("Failed to send message. Please try again.");
-        } finally {
-            setIsSendingMessage(false);
-        }
+        setIsSendingMessage(false);
     };
 
     const formatTime = (date) => {

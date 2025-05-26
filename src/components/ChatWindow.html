@@ -210,14 +210,13 @@
 
             const sendMessage = async () => {
                 if (!messageText.trim() || !activeContact || !currentUser || !authToken) {
-                    console.warn("Cannot send message: Missing data (text, contact, user, or token).");
                     setMessageSendError("Please log in and select a contact to send messages.");
                     return;
                 }
-
                 setMessageSendError(null);
                 setIsSendingMessage(true);
 
+                // Optimistically add the message to the UI
                 const userMessage = {
                     id: `msg-${Date.now()}-user`,
                     senderId: currentUser.id,
@@ -232,48 +231,15 @@
                 }));
                 setMessageText("");
 
-                const fullModelName = `${MODEL_PREFIX}${activeContact}`;
+                // Send message via IPC to main process
+                window.api.send('chat:send-message', {
+                    contactId: activeContact,
+                    message: messageText,
+                    authToken,
+                    appId: currentUser.id
+                });
 
-                try {
-                    const response = await fetch(`${API_BASE_URL}/chat/completions`, {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                            "X-App-ID": currentUser.id,
-                            "X-User-Auth": authToken,
-                        },
-                        body: JSON.stringify({
-                            model: fullModelName,
-                            messages: [{ role: "user", content: userMessage.text }],
-                        }),
-                    });
-
-                    const data = await response.json();
-
-                    if (response.ok && data.choices && data.choices.length > 0) {
-                        const botReplyContent = data.choices[0].message.content;
-                        const botReplyMessage = {
-                            id: `msg-${Date.now()}-bot`,
-                            senderId: activeContact,
-                            text: botReplyContent,
-                            timestamp: new Date(),
-                            isRead: false,
-                        };
-
-                        setMessages((prev) => ({
-                            ...prev,
-                            [activeContact]: [...(prev[activeContact] || []), botReplyMessage],
-                        }));
-                    } else {
-                        const errorMsg = data.message || data.error?.message || "Failed to get response from chat API.";
-                        setMessageSendError(errorMsg);
-                    }
-                } catch (err) {
-                    const errorMessage = err instanceof Error ? err.message : "An unknown network error occurred while sending message.";
-                    setMessageSendError(errorMessage);
-                } finally {
-                    setIsSendingMessage(false);
-                }
+                setIsSendingMessage(false);
             };
 
             const formatTime = (date) => {
