@@ -26,8 +26,19 @@ function ChatWindow() {
     const [newContactUsername, setNewContactUsername] = useState("");
 
     const [allAvailableContacts, setAllAvailableContacts] = useState([
-        { id: "tenshi", name: "Tenshi", avatar: "/avatars/tenshi.png", status: "online" },
-        { id: "bidya", name: "Bidya", avatar: "/avatars/bidya.png", status: "away", lastSeen: "online" },
+        {
+            id: "tenshi",
+            name: "Tenshi",
+          
+            status: "online"
+        },
+        {
+            id: "bidya",
+            name: "Bidya",
+       
+            status: "away",
+            lastSeen: "online"
+        }
     ]);
 
     const contacts = allAvailableContacts.filter(
@@ -73,73 +84,89 @@ function ChatWindow() {
         }
     }, [isAuthenticated, currentUser?.id, contacts.length]);
 
-const handleAuthorizeClick = async () => {
-    setLoginError(null);
-    setAuthFlowStep("loadingCode");
-    try {
-        const response = await fetch('http://localhost:3001/auth/generate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ app_id: DEFAULT_APP_ID })
-        });
-        const data = await response.json();
-        if (data.code) {
-            setOneTimeCode(data.code);
-            setAuthFlowStep("awaitingCode");
-        } else {
-            setLoginError(data.error || "Failed to generate code.");
-            setAuthFlowStep("initial");
-        }
-    } catch (e) {
-        setLoginError("Could not generate code.");
-        setAuthFlowStep("initial");
-    }
-};
-
-const handleCodeSubmit = async () => {
-    setLoginError(null);
-        if (!codeInput) {
-        setLoginError("Please paste the one-time code.");
-        return;
-    }
-    setIsLoggingIn(true);
-    try {
-        const response = await fetch('http://localhost:3001/auth/nonce', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                app_id: DEFAULT_APP_ID,
-                    code: codeInput
-            })
-        });
-        const result = await response.json();
-        if (result.auth_token) {
-            setAuthToken(result.auth_token);
-            setCurrentUser({
-                id: DEFAULT_APP_ID,
-                name: "User_" + DEFAULT_APP_ID.slice(0, 8),
-                avatar: "/placeholder.svg?height=48&width=48",
+    useEffect(() => {
+        const handler = (message) => {
+            setMessages((prev) => {
+                const existing = prev[message.senderId] || [];
+                if (existing.some(m => m.id === message.id)) {
+                    return prev;
+                }
+                return {
+                    ...prev,
+                    [message.senderId]: [...existing, message],
+                };
             });
-            setIsAuthenticated(true);
-            setOneTimeCode("");
-                setCodeInput("");
+        };
+        window.api.receive('chat:message-received', handler);
+    }, []);
+
+    const handleAuthorizeClick = async () => {
+        setLoginError(null);
+        setAuthFlowStep("loadingCode");
+        try {
+            const response = await fetch('http://localhost:3001/auth/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ app_id: DEFAULT_APP_ID })
+            });
+            const data = await response.json();
+            if (data.code) {
+                setOneTimeCode(data.code);
+                setAuthFlowStep("awaitingCode");
+            } else {
+                setLoginError(data.error || "Failed to generate code.");
+                setAuthFlowStep("initial");
+            }
+        } catch (e) {
+            setLoginError("Could not generate code.");
             setAuthFlowStep("initial");
-        } else {
-            setLoginError(result.error || "Failed to exchange code for token.");
         }
-    } catch (error) {
-        setLoginError("An unexpected error occurred during token exchange.");
-    } finally {
-        setIsLoggingIn(false);
-    }
-};
+    };
+
+    const handleCodeSubmit = async () => {
+        setLoginError(null);
+        if (!codeInput) {
+            setLoginError("Please paste the one-time code.");
+            return;
+        }
+        setIsLoggingIn(true);
+        try {
+            const response = await fetch('http://localhost:3001/auth/nonce', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    app_id: DEFAULT_APP_ID,
+                    code: codeInput
+                })
+            });
+            const result = await response.json();
+            if (result.auth_token) {
+                setAuthToken(result.auth_token);
+                setCurrentUser({
+                    id: DEFAULT_APP_ID,
+                    name: "User_" + DEFAULT_APP_ID.slice(0, 8),
+                
+                });
+                setIsAuthenticated(true);
+                setOneTimeCode("");
+                setCodeInput("");
+                setAuthFlowStep("initial");
+            } else {
+                setLoginError(result.error || "Failed to exchange code for token.");
+            }
+        } catch (error) {
+            setLoginError("An unexpected error occurred during token exchange.");
+        } finally {
+            setIsLoggingIn(false);
+        }
+    };
 
     const handleAddContact = () => {
         if (newContactUsername.trim()) {
             const newContact = {
                 id: newContactUsername.trim().toLowerCase(),
                 name: newContactUsername.trim(),
-                avatar: "/placeholder.svg?height=48&width=48",
+   
                 status: "offline",
                 lastSeen: "Just added",
             };
@@ -169,8 +196,19 @@ const handleCodeSubmit = async () => {
         setIsAddingContact(false);
         setNewContactUsername("");
         setAllAvailableContacts([
-            { id: "tenshi", name: "Tenshi", avatar: "/avatars/tenshi.png", status: "online" },
-            { id: "bidya", name: "Bidya", avatar: "/avatars/bidya.png", status: "away", lastSeen: "30 minutes ago" },
+            {
+                id: "tenshi",
+                name: "Tenshi",
+             
+                status: "online"
+            },
+            {
+                id: "bidya",
+                name: "Bidya",
+                
+                status: "away",
+                lastSeen: "30 minutes ago"
+            },
         ]);
     };
 
@@ -241,11 +279,7 @@ const handleCodeSubmit = async () => {
                 <div className="p-4 border-b border-gray-200">
                     {isAuthenticated ? (
                         <div className="flex items-center">
-                            <img
-                                src={currentUser.avatar}
-                                alt={currentUser.name}
-                                className="w-10 h-10 rounded-full"
-                            />
+                         
                             <div className="ml-3">
                                 <p className="text-sm font-medium text-gray-900">{currentUser.name}</p>
                                 <button
@@ -266,27 +300,27 @@ const handleCodeSubmit = async () => {
                                     Login with Shapes
                                 </button>
                             ) : authFlowStep === "awaitingCode" ? (
-    <div>
-        <div className="mb-2">
-            <span className="text-xs text-gray-500">Your one-time code:</span>
-            <div className="font-mono text-lg bg-gray-100 rounded px-2 py-1 select-all">{oneTimeCode}</div>
-        </div>
-        <input
-            type="text"
-            value={codeInput}
-            onChange={(e) => setCodeInput(e.target.value)}
-            placeholder="Enter one-time code"
-            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md"
-        />
-        <button
-            onClick={handleCodeSubmit}
-            disabled={isLoggingIn}
-            className="w-full px-4 py-2 mt-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
-        >
-            {isLoggingIn ? "Logging in..." : "Submit Code"}
-        </button>
-    </div>
-) : null}
+                                <div>
+                                    <div className="mb-2">
+                                        <span className="text-xs text-gray-500">Your one-time code:</span>
+                                        <div className="font-mono text-lg bg-gray-100 rounded px-2 py-1 select-all">{oneTimeCode}</div>
+                                    </div>
+                                    <input
+                                        type="text"
+                                        value={codeInput}
+                                        onChange={(e) => setCodeInput(e.target.value)}
+                                        placeholder="Enter one-time code"
+                                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md"
+                                    />
+                                    <button
+                                        onClick={handleCodeSubmit}
+                                        disabled={isLoggingIn}
+                                        className="w-full px-4 py-2 mt-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
+                                    >
+                                        {isLoggingIn ? "Logging in..." : "Submit Code"}
+                                    </button>
+                                </div>
+                            ) : null}
                             {loginError && (
                                 <p className="mt-2 text-sm text-red-600">{loginError}</p>
                             )}
@@ -306,11 +340,7 @@ const handleCodeSubmit = async () => {
                         >
                             <div className="flex items-center">
                                 <div className="relative">
-                                    <img
-                                        src={contact.avatar}
-                                        alt={contact.name}
-                                        className="w-10 h-10 rounded-full"
-                                    />
+                           
                                     <span
                                         className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white ${getStatusColor(
                                             contact.status
@@ -383,11 +413,7 @@ const handleCodeSubmit = async () => {
                                     const contact = getContactInfo(activeContact);
                                     return contact ? (
                                         <div className="flex items-center">
-                                            <img
-                                                src={contact.avatar}
-                                                alt={contact.name}
-                                                className="w-10 h-10 rounded-full"
-                                            />
+                                    
                                             <div className="ml-3">
                                                 <p className="text-sm font-medium text-gray-900">
                                                     {contact.name}
@@ -502,4 +528,3 @@ ReactDOM.render(
 );
 window.ChatWindow = ChatWindow;
 <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; connect-src 'self' http://localhost:3001 https://api.shapes.inc"></meta>
-//

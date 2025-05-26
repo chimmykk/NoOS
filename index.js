@@ -587,6 +587,22 @@ ipcMain.handle('auth:exchange-code', async (event, oneTimeCode) => {
     }
 });
 
+// Run Shapes CLI
+ipcMain.on('run-shape-cli', (event) => {
+    const scriptPath = path.join(__dirname, 'run.sh');
+    const child = spawn(scriptPath, [], { shell: true });
+
+    child.stdout.on('data', (data) => {
+        event.sender.send('terminal-output', data.toString());
+    });
+    child.stderr.on('data', (data) => {
+        event.sender.send('terminal-output', data.toString());
+    });
+    child.on('close', (code) => {
+        event.sender.send('terminal-output', `\n[Shapes CLI exited with code ${code}]\n`);
+    });
+});
+
 // Ensure all paths to HTML files (dist/index.html, dist/terminal.html, etc.)
 // and assets (assets/img/icon.png) are correct relative to your project structure.
 // Ensure './src/api/server' path is correct.

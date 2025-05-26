@@ -76,11 +76,14 @@ contextBridge.exposeInMainWorld(
 );
 
 contextBridge.exposeInMainWorld('terminal', {
-  sendInput: (input) => ipcRenderer.send('terminal-input', input),
-  onOutput: (callback) => ipcRenderer.on('terminal-output', (_, data) => callback(data)),
-  minimize: () => ipcRenderer.send('terminal:minimize'),
-  maximize: () => ipcRenderer.send('terminal:maximize'),
-  close: () => ipcRenderer.send('terminal:close')
+    onOutput: (callback) => {
+        ipcRenderer.on('terminal-output', (event, data) => callback(data));
+    },
+    sendInput: (input) => ipcRenderer.send('terminal-input', input),
+    minimize: () => ipcRenderer.send('terminal:minimize'),
+    maximize: () => ipcRenderer.send('terminal:maximize'),
+    close: () => ipcRenderer.send('terminal:close'),
+    runShapeCli: () => ipcRenderer.send('run-shape-cli')
 });
 
 contextBridge.exposeInMainWorld('synth', {
@@ -115,4 +118,38 @@ contextBridge.exposeInMainWorld('ipod', {
 // Expose closeIpodWindow as a separate API if needed
 contextBridge.exposeInMainWorld('ipodControls', {
   closeIpodWindow: () => ipcRenderer.send('close-ipod-window')
+});
+
+form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const value = inputElement.value.trim();
+    if (!value) return;
+
+    if (value === '!shape') {
+        window.terminal.runShapeCli();
+        inputElement.value = '';
+        return;
+    }
+
+    window.terminal.sendInput(value + '\n');
+    inputElement.value = '';
+});
+
+const { ipcMain } = require('electron');
+const { spawn } = require('child_process');
+const path = require('path');
+
+ipcMain.on('run-shape-cli', (event) => {
+    const scriptPath = path.join(__dirname, 'run.sh');
+    const child = spawn(scriptPath, [], { shell: true });
+
+    child.stdout.on('data', (data) => {
+        event.sender.send('terminal-output', data.toString());
+    });
+    child.stderr.on('data', (data) => {
+        event.sender.send('terminal-output', data.toString());
+    });
+    child.on('close', (code) => {
+        event.sender.send('terminal-output', `\n[Shapes CLI exited with code ${code}]\n`);
+    });
 });

@@ -21,12 +21,21 @@
     <div id="game-container">
         <!-- Game Status and Restart -->
         <div id="game-controls">
-            <span id="game-status">Click to start!</span>
+            <span id="game-status"><i class="fas fa-smile-beam"></i> Click to start!</span>
             <button id="restart-button">Restart</button>
         </div>
-        <div id="minesweeper-board"></div> <!-- Container for the grid -->
+        <div id="minesweeper-board" style="grid-template-columns: repeat(10, 36px);"></div> <!-- Container for the grid -->
     </div>
 
     <script src="minesweeper-renderer.js"></script>
+    <script>
+        // Add this to your minesweeper-renderer.js
+        document.getElementById('restart-button').addEventListener('mousedown', function() {
+            this.style.transform = 'scale(0.93)';
+        });
+        document.getElementById('restart-button').addEventListener('mouseup', function() {
+            this.style.transform = '';
+        });
+    </script>
 </body>
-</html> 
+</html>
