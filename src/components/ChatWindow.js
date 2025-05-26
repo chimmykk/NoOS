@@ -502,3 +502,4 @@ ReactDOM.render(
 );
 window.ChatWindow = ChatWindow;
 <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; connect-src 'self' http://localhost:3001 https://api.shapes.inc"></meta>
+//
