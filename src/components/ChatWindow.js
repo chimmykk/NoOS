@@ -13,6 +13,7 @@ function ChatWindow() {
     const [currentUser, setCurrentUser] = useState(null);
     const [authToken, setAuthToken] = useState(null);
     const [oneTimeCode, setOneTimeCode] = useState("");
+    const [codeInput, setCodeInput] = useState(""); // <-- for user input
     const [loginError, setLoginError] = useState(null);
     const [isLoggingIn, setIsLoggingIn] = useState(false);
     const [authFlowStep, setAuthFlowStep] = useState("initial");
@@ -70,49 +71,68 @@ function ChatWindow() {
             setMessages({});
             setActiveContact(null);
         }
-    }, [isAuthenticated, currentUser && currentUser.id, contacts.length]);
+    }, [isAuthenticated, currentUser?.id, contacts.length]);
 
-    const handleAuthorizeClick = () => {
-        setLoginError(null);
-        const authorizeUrl = `${SITE_BASE_URL}/authorize?app_id=${DEFAULT_APP_ID}`;
-        window.api.send('browser:load-url', authorizeUrl);
-        setAuthFlowStep("awaitingCode");
-    };
-
-    const handleCodeSubmit = async () => {
-        setLoginError(null);
-        if (!oneTimeCode) {
-            setLoginError("Please paste the one-time code.");
-            return;
+const handleAuthorizeClick = async () => {
+    setLoginError(null);
+    setAuthFlowStep("loadingCode");
+    try {
+        const response = await fetch('http://localhost:3001/auth/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ app_id: DEFAULT_APP_ID })
+        });
+        const data = await response.json();
+        if (data.code) {
+            setOneTimeCode(data.code);
+            setAuthFlowStep("awaitingCode");
+        } else {
+            setLoginError(data.error || "Failed to generate code.");
+            setAuthFlowStep("initial");
         }
+    } catch (e) {
+        setLoginError("Could not generate code.");
+        setAuthFlowStep("initial");
+    }
+};
 
-        setIsLoggingIn(true);
-        try {
-            const result = await window.api.invoke('auth:exchange-code', {
-                appId: DEFAULT_APP_ID,
-                oneTimeCode: oneTimeCode
+const handleCodeSubmit = async () => {
+    setLoginError(null);
+        if (!codeInput) {
+        setLoginError("Please paste the one-time code.");
+        return;
+    }
+    setIsLoggingIn(true);
+    try {
+        const response = await fetch('http://localhost:3001/auth/nonce', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                app_id: DEFAULT_APP_ID,
+                    code: codeInput
+            })
+        });
+        const result = await response.json();
+        if (result.auth_token) {
+            setAuthToken(result.auth_token);
+            setCurrentUser({
+                id: DEFAULT_APP_ID,
+                name: "User_" + DEFAULT_APP_ID.slice(0, 8),
+                avatar: "/placeholder.svg?height=48&width=48",
             });
-
-            if (result.auth_token) {
-                setAuthToken(result.auth_token);
-                setCurrentUser({
-                    id: DEFAULT_APP_ID,
-                    name: "User_" + DEFAULT_APP_ID.slice(0, 8),
-                    avatar: "/placeholder.svg?height=48&width=48",
-                });
-                setIsAuthenticated(true);
-                setOneTimeCode("");
-                setAuthFlowStep("initial");
-            } else {
-                setLoginError(result.error || "Failed to exchange code for token.");
-            }
-        } catch (error) {
-            console.error("Login error:", error);
-            setLoginError("An unexpected error occurred during token exchange.");
-        } finally {
-            setIsLoggingIn(false);
+            setIsAuthenticated(true);
+            setOneTimeCode("");
+                setCodeInput("");
+            setAuthFlowStep("initial");
+        } else {
+            setLoginError(result.error || "Failed to exchange code for token.");
         }
-    };
+    } catch (error) {
+        setLoginError("An unexpected error occurred during token exchange.");
+    } finally {
+        setIsLoggingIn(false);
+    }
+};
 
     const handleAddContact = () => {
         if (newContactUsername.trim()) {
@@ -156,11 +176,9 @@ function ChatWindow() {
 
     const sendMessage = async () => {
         if (!messageText.trim() || !activeContact || !currentUser || !authToken) {
-            console.warn("Cannot send message: Missing data (text, contact, user, or token).");
             setMessageSendError("Please log in and select a contact to send messages.");
             return;
         }
-
         setMessageSendError(null);
         setIsSendingMessage(true);
 
@@ -179,6 +197,10 @@ function ChatWindow() {
         setMessageText("");
 
         const fullModelName = `${MODEL_PREFIX}${activeContact}`;
+        const conversationHistory = (messages[activeContact] || []).map(msg => ({
+            role: msg.senderId === currentUser.id ? "user" : "assistant",
+            content: msg.text
+        }));
 
         try {
             const response = await fetch(`${API_BASE_URL}/chat/completions`, {
@@ -190,13 +212,18 @@ function ChatWindow() {
                 },
                 body: JSON.stringify({
                     model: fullModelName,
-                    messages: [{ role: "user", content: userMessage.text }],
+                    messages: [...conversationHistory, { role: "user", content: userMessage.text }],
                 }),
             });
 
             const data = await response.json();
 
-            if (response.ok && data.choices && data.choices.length > 0) {
+            if (response.status === 401) {
+                setMessageSendError("Authentication failed. Please log in again.");
+                performLogout();
+            } else if (response.status === 429) {
+                setMessageSendError("Rate limit exceeded. Please try again later.");
+            } else if (response.ok && data.choices && data.choices.length > 0) {
                 const botReplyContent = data.choices[0].message.content;
                 const botReplyMessage = {
                     id: `msg-${Date.now()}-bot`,
@@ -214,7 +241,6 @@ function ChatWindow() {
                 throw new Error(data.error || "Failed to get response from bot");
             }
         } catch (error) {
-            console.error("Error sending message:", error);
             setMessageSendError("Failed to send message. Please try again.");
         } finally {
             setIsSendingMessage(false);
@@ -278,24 +304,28 @@ function ChatWindow() {
                                 >
                                     Login with Shapes
                                 </button>
-                            ) : (
-                                <div>
-                                    <input
-                                        type="text"
-                                        value={oneTimeCode}
-                                        onChange={(e) => setOneTimeCode(e.target.value)}
-                                        placeholder="Enter one-time code"
-                                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md"
-                                    />
-                                    <button
-                                        onClick={handleCodeSubmit}
-                                        disabled={isLoggingIn}
-                                        className="w-full px-4 py-2 mt-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
-                                    >
-                                        {isLoggingIn ? "Logging in..." : "Submit Code"}
-                                    </button>
-                                </div>
-                            )}
+                            ) : authFlowStep === "awaitingCode" ? (
+    <div>
+        <div className="mb-2">
+            <span className="text-xs text-gray-500">Your one-time code:</span>
+            <div className="font-mono text-lg bg-gray-100 rounded px-2 py-1 select-all">{oneTimeCode}</div>
+        </div>
+        <input
+            type="text"
+            value={codeInput}
+            onChange={(e) => setCodeInput(e.target.value)}
+            placeholder="Enter one-time code"
+            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md"
+        />
+        <button
+            onClick={handleCodeSubmit}
+            disabled={isLoggingIn}
+            className="w-full px-4 py-2 mt-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
+        >
+            {isLoggingIn ? "Logging in..." : "Submit Code"}
+        </button>
+    </div>
+) : null}
                             {loginError && (
                                 <p className="mt-2 text-sm text-red-600">{loginError}</p>
                             )}
@@ -484,11 +514,30 @@ function ChatWindow() {
         </div>
     );
 }
+ipcMain.handle('auth:exchange-code', async (event, { appId, oneTimeCode }) => {
+    try {
+        const response = await fetch('http://localhost:3001/auth/nonce', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ app_id: appId, code: oneTimeCode }),
+        });
 
-// Make ChatWindow available globally
+        const data = await response.json();
+
+        if (response.ok && data.auth_token) {
+            return { auth_token: data.auth_token };
+        } else {
+            throw new Error(data.message || 'Failed to exchange code for token.');
+        }
+    } catch (error) {
+        console.error('Error in auth:exchange-code:', error);
+        throw error; // Propagate error to renderer process
+    }
+});
+// Render the component
 ReactDOM.render(
     React.createElement(ChatWindow),
     document.getElementById('root')
 );
-
-window.ChatWindow = ChatWindow; 
+window.ChatWindow = ChatWindow;
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; connect-src 'self' http://localhost:3001 https://api.shapes.inc"></meta>

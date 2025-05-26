@@ -48,7 +48,6 @@ contextBridge.exposeInMainWorld(
         receive: (channel, func) => {
             let validChannels = [
                 'terminal-output',
-                'auth:exchange-code',
                 'volume:level',
                 'wifi:list',
                 'chat:message-received',
@@ -62,7 +61,6 @@ contextBridge.exposeInMainWorld(
         },
         invoke: (channel, data) => {
             let validChannels = [
-                'auth:exchange-code',
                 'volume:get',
                 'wifi:list',
                 'time:get',
@@ -102,8 +100,8 @@ contextBridge.exposeInMainWorld('shapeapps', {
   minimize: () => ipcRenderer.send('shapeapps:minimize'),
   maximize: () => ipcRenderer.send('shapeapps:maximize'),
   close: () => ipcRenderer.send('shapeapps:close'),
-  loadBrowserUrl: (url) => ipcRenderer.send('load-browser-url', url), // Expose function to load URL in browser iframe
-  openBrowserWithUrl: (url) => ipcRenderer.send('open:browser', url) // Expose function to open browser with URL
+  loadBrowserUrl: (url) => ipcRenderer.send('load-browser-url', url),
+  openBrowserWithUrl: (url) => ipcRenderer.send('open:browser', url)
 });
 
 // Expose iPod window controls
@@ -114,11 +112,7 @@ contextBridge.exposeInMainWorld('ipod', {
   open: () => ipcRenderer.send('open:ipod')
 });
 
-// Removed iPod, Videos, and Photos exposed functions 
-
-contextBridge.exposeInMainWorld(
-  'ipodControls',
-  {
-    closeIpodWindow: () => ipcRenderer.send('close-ipod-window')
-  }
-); 
+// Expose closeIpodWindow as a separate API if needed
+contextBridge.exposeInMainWorld('ipodControls', {
+  closeIpodWindow: () => ipcRenderer.send('close-ipod-window')
+});

@@ -5,11 +5,11 @@ const os = require('os');
 const { spawn } = require('child_process');
 const fs = require('fs');
 const { shell } = require('electron');
-const { handleAuthRequest } = require('./src/api/auth');
 const { startServer } = require('./src/api/server');
 const si = require('systeminformation');
 const vol = require('vol');
 const wifiList = require('wifi-list-windows');
+const axios = require('axios');
 
 // Start the auth server
 startServer();
@@ -514,10 +514,7 @@ ipcMain.on('minesweeper:close', () => {
     }
 });
 
-// Add this to your existing IPC handlers
-ipcMain.handle('auth:exchange-code', async (event, { appId, oneTimeCode }) => {
-    return handleAuthRequest(event, { appId, oneTimeCode });
-});
+
 
 // Handle volume control
 ipcMain.handle('volume:get', async () => {
@@ -680,5 +677,21 @@ ipcMain.on('chat:update-status', async (event, { status }) => {
         event.reply('chat:status-changed', { status });
     } catch (error) {
         console.error('Error updating status:', error);
+    }
+});
+
+// Auth exchange code handler
+ipcMain.handle('auth:exchange-code', async (event, oneTimeCode) => {
+    try {
+        // app_id is hardcoded on the server, so just send code
+        const response = await axios.post('http://localhost:3001/auth/nonce', { code: oneTimeCode });
+        if (response.data && response.data.auth_token) {
+            return { auth_token: response.data.auth_token };
+        } else {
+            return { error: response.data.message || 'Failed to exchange code for token.' };
+        }
+    } catch (error) {
+        console.error('Error in auth:exchange-code:', error);
+        return { error: error.message || 'Unexpected error' };
     }
 });
