@@ -1,5 +1,82 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
+// Expose protected methods that allow the renderer process to use
+// the ipcRenderer without exposing the entire object
+contextBridge.exposeInMainWorld(
+    'api', {
+        send: (channel, data) => {
+            // whitelist channels
+            let validChannels = [
+                'open:terminal',
+                'terminal-input',
+                'terminal:minimize',
+                'terminal:maximize',
+                'terminal:close',
+                'open:browser',
+                'open:synth',
+                'open:minesweeper',
+                'open:shapeapps',
+                'open:ipod',
+                'open:chat',
+                'open-external-url',
+                'shapeapps:minimize',
+                'shapeapps:maximize',
+                'shapeapps:close',
+                'ipod:minimize',
+                'ipod:maximize',
+                'ipod:close',
+                'close-ipod-window',
+                'synth:minimize',
+                'synth:maximize',
+                'synth:close',
+                'minesweeper:minimize',
+                'minesweeper:maximize',
+                'minesweeper:close',
+                'volume:set',
+                'browser:load-url',
+                'browser:search',
+                'browser:reload',
+                'chat:send-message',
+                'chat:add-contact',
+                'chat:remove-contact',
+                'chat:update-status'
+            ];
+            if (validChannels.includes(channel)) {
+                ipcRenderer.send(channel, data);
+            }
+        },
+        receive: (channel, func) => {
+            let validChannels = [
+                'terminal-output',
+                'auth:exchange-code',
+                'volume:level',
+                'wifi:list',
+                'chat:message-received',
+                'chat:contact-updated',
+                'chat:status-changed'
+            ];
+            if (validChannels.includes(channel)) {
+                // Deliberately strip event as it includes `sender` 
+                ipcRenderer.on(channel, (event, ...args) => func(...args));
+            }
+        },
+        invoke: (channel, data) => {
+            let validChannels = [
+                'auth:exchange-code',
+                'volume:get',
+                'wifi:list',
+                'time:get',
+                'chat:get-messages',
+                'chat:get-contacts',
+                'chat:get-user-info'
+            ];
+            if (validChannels.includes(channel)) {
+                return ipcRenderer.invoke(channel, data);
+            }
+        }
+    }
+);
+
 contextBridge.exposeInMainWorld('terminal', {
   sendInput: (input) => ipcRenderer.send('terminal-input', input),
   onOutput: (callback) => ipcRenderer.on('terminal-output', (_, data) => callback(data)),

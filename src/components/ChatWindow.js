@@ -1,0 +1,494 @@
+const React = require('react');
+const ReactDOM = require('react-dom');
+
+const { useState, useEffect } = React;
+
+const DEFAULT_APP_ID = "f6263f80-2242-428d-acd4-10e1feec44ee";
+const API_BASE_URL = "https://api.shapes.inc/v1";
+const SITE_BASE_URL = "https://shapes.inc";
+const MODEL_PREFIX = "shapesinc/";
+
+function ChatWindow() {
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [currentUser, setCurrentUser] = useState(null);
+    const [authToken, setAuthToken] = useState(null);
+    const [oneTimeCode, setOneTimeCode] = useState("");
+    const [loginError, setLoginError] = useState(null);
+    const [isLoggingIn, setIsLoggingIn] = useState(false);
+    const [authFlowStep, setAuthFlowStep] = useState("initial");
+    const [activeContact, setActiveContact] = useState(null);
+    const [messageText, setMessageText] = useState("");
+    const [messages, setMessages] = useState({});
+    const [isSendingMessage, setIsSendingMessage] = useState(false);
+    const [messageSendError, setMessageSendError] = useState(null);
+    const [isAddingContact, setIsAddingContact] = useState(false);
+    const [newContactUsername, setNewContactUsername] = useState("");
+
+    const [allAvailableContacts, setAllAvailableContacts] = useState([
+        { id: "tenshi", name: "Tenshi", avatar: "/avatars/tenshi.png", status: "online" },
+        { id: "bidya", name: "Bidya", avatar: "/avatars/bidya.png", status: "away", lastSeen: "online" },
+    ]);
+
+    const contacts = allAvailableContacts.filter(
+        (contact) => currentUser && contact.id !== currentUser.id
+    );
+
+    useEffect(() => {
+        if (isAuthenticated && currentUser) {
+            const initialMessages = {
+                tenshi: [
+                    {
+                        id: "msg_t1",
+                        senderId: "tenshi",
+                        text: "Hey! How are you doing?",
+                        timestamp: new Date(Date.now() - 3600000),
+                        isRead: true,
+                    },
+                    {
+                        id: "msg_t2",
+                        senderId: currentUser.id,
+                        text: "I'm great! Just setting up the chat app.",
+                        timestamp: new Date(Date.now() - 3500000),
+                        isRead: true,
+                    },
+                ],
+                bidya: [
+                    {
+                        id: "msg_b1",
+                        senderId: "bidya",
+                        text: "Are you free for a call later?",
+                        timestamp: new Date(Date.now() - 86400000),
+                        isRead: true,
+                    },
+                ],
+            };
+            setMessages(initialMessages);
+            if (contacts.length > 0) {
+                setActiveContact(contacts[0].id);
+            }
+        } else {
+            setMessages({});
+            setActiveContact(null);
+        }
+    }, [isAuthenticated, currentUser && currentUser.id, contacts.length]);
+
+    const handleAuthorizeClick = () => {
+        setLoginError(null);
+        const authorizeUrl = `${SITE_BASE_URL}/authorize?app_id=${DEFAULT_APP_ID}`;
+        window.api.send('browser:load-url', authorizeUrl);
+        setAuthFlowStep("awaitingCode");
+    };
+
+    const handleCodeSubmit = async () => {
+        setLoginError(null);
+        if (!oneTimeCode) {
+            setLoginError("Please paste the one-time code.");
+            return;
+        }
+
+        setIsLoggingIn(true);
+        try {
+            const result = await window.api.invoke('auth:exchange-code', {
+                appId: DEFAULT_APP_ID,
+                oneTimeCode: oneTimeCode
+            });
+
+            if (result.auth_token) {
+                setAuthToken(result.auth_token);
+                setCurrentUser({
+                    id: DEFAULT_APP_ID,
+                    name: "User_" + DEFAULT_APP_ID.slice(0, 8),
+                    avatar: "/placeholder.svg?height=48&width=48",
+                });
+                setIsAuthenticated(true);
+                setOneTimeCode("");
+                setAuthFlowStep("initial");
+            } else {
+                setLoginError(result.error || "Failed to exchange code for token.");
+            }
+        } catch (error) {
+            console.error("Login error:", error);
+            setLoginError("An unexpected error occurred during token exchange.");
+        } finally {
+            setIsLoggingIn(false);
+        }
+    };
+
+    const handleAddContact = () => {
+        if (newContactUsername.trim()) {
+            const newContact = {
+                id: newContactUsername.trim().toLowerCase(),
+                name: newContactUsername.trim(),
+                avatar: "/placeholder.svg?height=48&width=48",
+                status: "offline",
+                lastSeen: "Just added",
+            };
+            setAllAvailableContacts((prev) => {
+                if (prev.some((contact) => contact.id === newContact.id)) {
+                    return prev;
+                }
+                return [...prev, newContact];
+            });
+            setMessages((prev) => ({
+                ...prev,
+                [newContact.id]: [],
+            }));
+            setNewContactUsername("");
+            setIsAddingContact(false);
+        }
+    };
+
+    const performLogout = () => {
+        setIsAuthenticated(false);
+        setCurrentUser(null);
+        setAuthToken(null);
+        setLoginError(null);
+        setMessages({});
+        setActiveContact(null);
+        setAuthFlowStep("initial");
+        setIsAddingContact(false);
+        setNewContactUsername("");
+        setAllAvailableContacts([
+            { id: "tenshi", name: "Tenshi", avatar: "/avatars/tenshi.png", status: "online" },
+            { id: "bidya", name: "Bidya", avatar: "/avatars/bidya.png", status: "away", lastSeen: "30 minutes ago" },
+        ]);
+    };
+
+    const sendMessage = async () => {
+        if (!messageText.trim() || !activeContact || !currentUser || !authToken) {
+            console.warn("Cannot send message: Missing data (text, contact, user, or token).");
+            setMessageSendError("Please log in and select a contact to send messages.");
+            return;
+        }
+
+        setMessageSendError(null);
+        setIsSendingMessage(true);
+
+        const userMessage = {
+            id: `msg-${Date.now()}-user`,
+            senderId: currentUser.id,
+            text: messageText,
+            timestamp: new Date(),
+            isRead: true,
+        };
+
+        setMessages((prev) => ({
+            ...prev,
+            [activeContact]: [...(prev[activeContact] || []), userMessage],
+        }));
+        setMessageText("");
+
+        const fullModelName = `${MODEL_PREFIX}${activeContact}`;
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/chat/completions`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-App-ID": currentUser.id,
+                    "X-User-Auth": authToken,
+                },
+                body: JSON.stringify({
+                    model: fullModelName,
+                    messages: [{ role: "user", content: userMessage.text }],
+                }),
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.choices && data.choices.length > 0) {
+                const botReplyContent = data.choices[0].message.content;
+                const botReplyMessage = {
+                    id: `msg-${Date.now()}-bot`,
+                    senderId: activeContact,
+                    text: botReplyContent,
+                    timestamp: new Date(),
+                    isRead: false,
+                };
+
+                setMessages((prev) => ({
+                    ...prev,
+                    [activeContact]: [...(prev[activeContact] || []), botReplyMessage],
+                }));
+            } else {
+                throw new Error(data.error || "Failed to get response from bot");
+            }
+        } catch (error) {
+            console.error("Error sending message:", error);
+            setMessageSendError("Failed to send message. Please try again.");
+        } finally {
+            setIsSendingMessage(false);
+        }
+    };
+
+    const formatTime = (date) => {
+        return new Intl.DateTimeFormat('en-US', {
+            hour: 'numeric',
+            minute: 'numeric',
+            hour12: true
+        }).format(date);
+    };
+
+    const getStatusColor = (status) => {
+        switch (status) {
+            case 'online':
+                return 'bg-green-500';
+            case 'away':
+                return 'bg-yellow-500';
+            case 'offline':
+                return 'bg-gray-500';
+            default:
+                return 'bg-gray-500';
+        }
+    };
+
+    const getContactInfo = (contactId) => {
+        return contacts.find((c) => c.id === contactId) || null;
+    };
+
+    return (
+        <div className="flex h-screen bg-gray-100">
+            {/* Sidebar */}
+            <div className="w-64 bg-white border-r border-gray-200">
+                {/* User Profile */}
+                <div className="p-4 border-b border-gray-200">
+                    {isAuthenticated ? (
+                        <div className="flex items-center">
+                            <img
+                                src={currentUser.avatar}
+                                alt={currentUser.name}
+                                className="w-10 h-10 rounded-full"
+                            />
+                            <div className="ml-3">
+                                <p className="text-sm font-medium text-gray-900">{currentUser.name}</p>
+                                <button
+                                    onClick={performLogout}
+                                    className="text-xs text-red-600 hover:text-red-800"
+                                >
+                                    Logout
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div>
+                            {authFlowStep === "initial" ? (
+                                <button
+                                    onClick={handleAuthorizeClick}
+                                    className="w-full px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                                >
+                                    Login with Shapes
+                                </button>
+                            ) : (
+                                <div>
+                                    <input
+                                        type="text"
+                                        value={oneTimeCode}
+                                        onChange={(e) => setOneTimeCode(e.target.value)}
+                                        placeholder="Enter one-time code"
+                                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md"
+                                    />
+                                    <button
+                                        onClick={handleCodeSubmit}
+                                        disabled={isLoggingIn}
+                                        className="w-full px-4 py-2 mt-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
+                                    >
+                                        {isLoggingIn ? "Logging in..." : "Submit Code"}
+                                    </button>
+                                </div>
+                            )}
+                            {loginError && (
+                                <p className="mt-2 text-sm text-red-600">{loginError}</p>
+                            )}
+                        </div>
+                    )}
+                </div>
+
+                {/* Contacts List */}
+                <div className="overflow-y-auto h-[calc(100vh-8rem)]">
+                    {contacts.map((contact) => (
+                        <div
+                            key={contact.id}
+                            onClick={() => setActiveContact(contact.id)}
+                            className={`p-4 cursor-pointer hover:bg-gray-50 ${
+                                activeContact === contact.id ? "bg-gray-100" : ""
+                            }`}
+                        >
+                            <div className="flex items-center">
+                                <div className="relative">
+                                    <img
+                                        src={contact.avatar}
+                                        alt={contact.name}
+                                        className="w-10 h-10 rounded-full"
+                                    />
+                                    <span
+                                        className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white ${getStatusColor(
+                                            contact.status
+                                        )}`}
+                                    />
+                                </div>
+                                <div className="ml-3">
+                                    <p className="text-sm font-medium text-gray-900">{contact.name}</p>
+                                    <p className="text-xs text-gray-500">
+                                        {contact.status === "offline"
+                                            ? `Last seen ${contact.lastSeen}`
+                                            : contact.status}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Add Contact Button */}
+                {isAuthenticated && (
+                    <div className="p-4 border-t border-gray-200">
+                        {isAddingContact ? (
+                            <div>
+                                <input
+                                    type="text"
+                                    value={newContactUsername}
+                                    onChange={(e) => setNewContactUsername(e.target.value)}
+                                    placeholder="Enter username"
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md"
+                                />
+                                <div className="flex mt-2 space-x-2">
+                                    <button
+                                        onClick={handleAddContact}
+                                        className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                                    >
+                                        Add
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setIsAddingContact(false);
+                                            setNewContactUsername("");
+                                        }}
+                                        className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <button
+                                onClick={() => setIsAddingContact(true)}
+                                className="w-full px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100"
+                            >
+                                + Add Contact
+                            </button>
+                        )}
+                    </div>
+                )}
+            </div>
+
+            {/* Chat Area */}
+            <div className="flex-1 flex flex-col">
+                {activeContact ? (
+                    <div>
+                        {/* Chat Header */}
+                        <div className="p-4 border-b border-gray-200 bg-white">
+                            <div className="flex items-center">
+                                {(() => {
+                                    const contact = getContactInfo(activeContact);
+                                    return contact ? (
+                                        <div className="flex items-center">
+                                            <img
+                                                src={contact.avatar}
+                                                alt={contact.name}
+                                                className="w-10 h-10 rounded-full"
+                                            />
+                                            <div className="ml-3">
+                                                <p className="text-sm font-medium text-gray-900">
+                                                    {contact.name}
+                                                </p>
+                                                <p className="text-xs text-gray-500">
+                                                    {contact.status === "offline"
+                                                        ? `Last seen ${contact.lastSeen}`
+                                                        : contact.status}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    ) : null;
+                                })()}
+                            </div>
+                        </div>
+
+                        {/* Messages */}
+                        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                            {messages[activeContact] && messages[activeContact].map((message) => (
+                                <div
+                                    key={message.id}
+                                    className={`flex ${
+                                        message.senderId === (currentUser && currentUser.id)
+                                            ? "justify-end"
+                                            : "justify-start"
+                                    }`}
+                                >
+                                    <div
+                                        className={`max-w-[70%] rounded-lg px-4 py-2 ${
+                                            message.senderId === (currentUser && currentUser.id)
+                                                ? "bg-blue-600 text-white"
+                                                : "bg-gray-200 text-gray-900"
+                                        }`}
+                                    >
+                                        <p className="text-sm">{message.text}</p>
+                                        <p
+                                            className={`text-xs mt-1 ${
+                                                message.senderId === (currentUser && currentUser.id)
+                                                    ? "text-blue-100"
+                                                    : "text-gray-500"
+                                            }`}
+                                        >
+                                            {formatTime(message.timestamp)}
+                                        </p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Message Input */}
+                        <div className="p-4 border-t border-gray-200 bg-white">
+                            <div className="flex space-x-4">
+                                <input
+                                    type="text"
+                                    value={messageText}
+                                    onChange={(e) => setMessageText(e.target.value)}
+                                    onKeyPress={(e) => {
+                                        if (e.key === "Enter" && !e.shiftKey) {
+                                            e.preventDefault();
+                                            sendMessage();
+                                        }
+                                    }}
+                                    placeholder="Type a message..."
+                                    className="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                                <button
+                                    onClick={sendMessage}
+                                    disabled={!messageText.trim() || isSendingMessage}
+                                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
+                                >
+                                    {isSendingMessage ? "Sending..." : "Send"}
+                                </button>
+                            </div>
+                            {messageSendError && (
+                                <p className="mt-2 text-sm text-red-600">{messageSendError}</p>
+                            )}
+                        </div>
+                    </div>
+                ) : (
+                    <div className="flex-1 flex items-center justify-center">
+                        <p className="text-gray-500">Select a contact to start chatting</p>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+// Make ChatWindow available globally
+ReactDOM.render(
+    React.createElement(ChatWindow),
+    document.getElementById('root')
+);
+
+window.ChatWindow = ChatWindow; 

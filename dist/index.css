@@ -7,7 +7,7 @@ body {
     margin:0;
     font-family: 'Questrial', sans-serif;
     background-color: #1e1e1e;
-    background:linear-gradient(0deg ,rgba(15,15,15,0.2), rgba(15,15,15,0.2)),url('https://images.unsplash.com/photo-1524721696987-b9527df9e512?w=2550&q=80') center center;
+    background:linear-gradient(0deg ,rgba(15,15,15,0.2), rgba(15,15,15,0.2)),url('https://res.cloudinary.com/deapg3k8f/image/upload/v1748212214/screen_gsmpge.jpg') center center;
     background-size:cover !important;
     background-repeat:no-repeat;
     max-width:100vw;

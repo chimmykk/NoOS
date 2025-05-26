@@ -1,19 +1,3 @@
-const date = require('date-and-time');
-const si = require('systeminformation');
-const vol = require('vol');
-const wifiList = require('wifi-list-windows');
-const fs = require('fs');
-const got = require('got');
-const jsdom = require('jsdom').JSDOM,
-    options = {
-    resources: "usable"
-};
-const { ipcRenderer } = require('electron');
-const { Terminal } = require('xterm');
-const { FitAddon } = require('xterm-addon-fit');
-const { WebLinksAddon } = require('xterm-addon-web-links');
-const { ipcMain } = require('electron');
-
 //for now this is how it opens or closes windows
 function openWindow(whichWindow){
     $(`#${whichWindow}`).css("display", "block");
@@ -33,42 +17,30 @@ function closeWindow(whichWindow) {
 
 $("#browserTab").attr("onclick",`openWindow('browser')`);
 
-// Conditionalize wifiList for Windows
-const os = require('os');
-if (os.platform() === 'win32') {
-    wifiList((err, wifi) => {
-        if (err) throw err;
-        if(wifi.length !== 0){
-            for(i = 0; i < wifi.length; i++){
-                $("#wifi").append(`<div class="inner-wifi">${wifi[i].ssid}<br><span>${wifi[i].authentication} &nbsp; ${Math.round(Number(wifi[i].signal)*100)}%</span></div>`);
-            }
+// Get initial WiFi list
+window.api.invoke('wifi:list').then(wifi => {
+    if(wifi && wifi.length !== 0){
+        for(i = 0; i < wifi.length; i++){
+            $("#wifi").append(`<div class="inner-wifi">${wifi[i].ssid}<br><span>${wifi[i].authentication} &nbsp; ${Math.round(Number(wifi[i].signal)*100)}%</span></div>`);
         }
-    });
-}
+    }
+});
 
-vol.get().then((level)=> {
+// Get initial volume level
+window.api.invoke('volume:get').then(level => {
     $("#level").html(Math.round(Number(level)*100));
     $("#volumeRange").val(Math.round(Number(level)*100));
 });
 
+// Update time
+function updateTime() {
+    window.api.invoke('time:get').then(timeData => {
+        $("#time").html(`${timeData.day} &nbsp;${timeData.time}`);
+    });
+}
 
-let now = new Date();
-date.setLocales('en', {
-    A: ['AM', 'PM']
-});
-var day = date.format(now, 'MMM DD');
-var time = date.format(now, 'hh:mm A');
-$("#time").html(`${day} &nbsp;${time}`);
-setInterval(() => {
-let now = new Date();
-date.setLocales('en', {
-    A: ['AM', 'PM']
-});
-
-var day = date.format(now, 'MMM DD');
-var time = date.format(now, 'hh:mm A');
-$("#time").html(`${day} &nbsp;${time}`);
-},60000);
+updateTime();
+setInterval(updateTime, 60000);
 
 $("#task_wifi").click((e) => {
     e.stopPropagation();
@@ -94,28 +66,15 @@ $("#task_vol").click((e) => {
     },800);
 });
 
-//processes thingy ends here
+// Volume control
 $("#volumeRange").on("click , mousemove", (e) => {
     e.stopPropagation();
     var nowVolume = $("#volumeRange").val();
-    vol.set(nowVolume/100);
+    window.api.send('volume:set', nowVolume/100);
     $("#level").html(nowVolume);
 });
 
-si.processes().then((data) => {
-    $("#pro_number").html(`Processes (${data.all})`);
-    for(i = 0; i < data.list.length; i++){
-        $("#real_processes").append(`
-        <tr>
-            <td>${data.list[i].name}</td>
-            <td>${data.list[i].pid}</td>
-            <td>${data.list[i].priority}</td>
-            <td>${data.list[i].started}</td>
-        </tr>
-        `);
-    }
-});
-
+// Browser search
 function search(e){
     if(e.keyCode == 13){
         e.preventDefault();
@@ -123,41 +82,10 @@ function search(e){
         var url =  /^(http[s]?:\/\/){0,1}(www\.){0,1}[a-zA-Z0-9\.\-]+\.[a-zA-Z]{2,5}[\.]{0,1}/;
         if (url.test(urlString)){
             $("#reload").addClass("wheel");
-            var stream = got.stream(urlString).pipe(fs.createWriteStream('./dist/browser.html'));
-            stream.on('finish', function (){
-                var originOfUrl = new URL(urlString).origin;
-                jsdom.fromFile('./dist/browser.html', options).then(function (dom) {
-                    let window = dom.window, document = window.document;
-                    var base = document.createElement("base");
-                    base.setAttribute("href", originOfUrl);
-                    document.getElementsByTagName("html")[0].prepend(base);
-                    fs.writeFile(`./dist/browser.html`, '<!DOCTYPE html>' + window.document.documentElement.outerHTML, function (error) {
-                        if (error) throw error;
-                        $("#reload").removeClass("wheel");
-                        $("#browser_data").attr("src","browser.html");
-                        e.target.value = urlString;
-                        e.target.blur();
-                    });
-                });
-            });
-        }else{
+            window.api.send('browser:load-url', urlString);
+        } else {
             $("#reload").addClass("wheel");
-            var stream = got.stream(`https://duckduckgo.com?q=${urlString}`).pipe(fs.createWriteStream('./dist/browser.html'));
-            stream.on('finish', function (){
-                jsdom.fromFile('./dist/browser.html', options).then(function (dom) {
-                    let window = dom.window, document = window.document;
-                    var base = document.createElement("base");
-                    base.setAttribute("href", "https://duckduckgo.com");
-                    document.getElementsByTagName("html")[0].prepend(base);
-                    fs.writeFile(`./dist/browser.html`, '<!DOCTYPE html>' + window.document.documentElement.outerHTML, function (error) {
-                        if (error) throw error;
-                        $("#reload").removeClass("wheel");
-                        $("#browser_data").attr("src","browser.html");
-                        e.target.value = `https://duckduckgo.com?q=${urlString}`;
-                        e.target.blur();
-                    });
-                });
-            });
+            window.api.send('browser:search', urlString);
         }
     }
 }
@@ -168,18 +96,8 @@ $("#reload").click(function(){
     setTimeout(function(){
         $("#reload").attr("disable",false);
         $("#reload").removeClass("wheel");
-    },1000)
-    $("#browser_data").attr("src","browser.html");
-});
-
-$("#file_explorer").click(function(){
-    var path = "C:/Users/user/Pictures";
-    fs.readdirSync(path).forEach(file => {
-        fs.lstat(`${path}/${file}`, (err, stats) => {
-            if (err) throw err; 
-            console.log(`${file}: ${stats.isFile()}`);
-        });
-    });
+    },1000);
+    window.api.send('browser:reload');
 });
 
 $('body,html').click(function(e){
@@ -198,62 +116,170 @@ $('body,html').click(function(e){
 // Wrap app icon listeners in DOMContentLoaded to ensure elements exist
 document.addEventListener('DOMContentLoaded', () => {
     setupAppIconListeners();
+    setupSystemControls();
 
     // Function to set up event listeners for app icons
     function setupAppIconListeners() {
         document.getElementById('terminal-icon').addEventListener('click', () => {
             console.log('Terminal icon clicked');
-            ipcRenderer.send('open:terminal');
+            window.api.send('open:terminal');
         });
 
         document.getElementById('chrome-icon').addEventListener('click', () => {
             console.log('Chrome icon clicked');
-            ipcRenderer.send('open:browser');
+            window.api.send('open:browser');
         });
 
         document.getElementById('synth-icon').addEventListener('click', () => {
             console.log('Synth icon clicked');
-            ipcRenderer.send('open:synth');
+            window.api.send('open:synth');
         });
 
         document.getElementById('minesweeper-icon').addEventListener('click', () => {
             console.log('Minesweeper icon clicked');
-            ipcRenderer.send('open:minesweeper');
+            window.api.send('open:minesweeper');
         });
 
-        // Add ShapeApps icon listener
         document.getElementById('shapeapps-icon').addEventListener('click', () => {
             console.log('ShapeApps icon clicked');
-            ipcRenderer.send('open:shapeapps');
+            window.api.send('open:shapeapps');
         });
 
-        // Add iPod icon listener
         document.getElementById('ipod-icon').addEventListener('click', () => {
             console.log('iPod icon clicked');
-            ipcRenderer.send('open:ipod');
+            window.api.send('open:ipod');
+        });
+
+        document.getElementById('chat-icon').addEventListener('click', () => {
+            console.log('Chat icon clicked');
+            window.api.send('open:chat');
         });
     }
 
-    // Terminal window controls
-    ipcMain.on('terminal:minimize', () => {
-        if (terminalWindow) {
-            terminalWindow.minimize();
-        }
-    });
+    // Function to set up system controls (volume, wifi, etc.)
+    function setupSystemControls() {
+        // Volume control
+        const volumeRange = document.getElementById('volumeRange');
+        const level = document.getElementById('level');
+        
+        if (volumeRange && level) {
+            // Get initial volume level
+            window.api.invoke('volume:get').then(volLevel => {
+                level.textContent = Math.round(volLevel * 100);
+                volumeRange.value = Math.round(volLevel * 100);
+            });
 
-    ipcMain.on('terminal:maximize', () => {
-        if (terminalWindow) {
-            if (terminalWindow.isMaximized()) {
-                terminalWindow.unmaximize();
-            } else {
-                terminalWindow.maximize();
+            volumeRange.addEventListener('input', (e) => {
+                const value = e.target.value;
+                level.textContent = value;
+                window.api.send('volume:set', value / 100);
+            });
+        }
+
+        // WiFi and Volume UI controls
+        const taskWifi = document.getElementById('task_wifi');
+        const taskVol = document.getElementById('task_vol');
+        const wifi = document.getElementById('wifi');
+        const volume = document.getElementById('volume');
+
+        if (taskWifi && taskVol && wifi && volume) {
+            // Get initial WiFi list
+            window.api.invoke('wifi:list').then(wifiList => {
+                if (wifiList && wifiList.length > 0) {
+                    wifiList.forEach(network => {
+                        wifi.innerHTML += `
+                            <div class="inner-wifi">
+                                ${network.ssid}<br>
+                                <span>${network.authentication} &nbsp; ${Math.round(network.signal * 100)}%</span>
+                            </div>
+                        `;
+                    });
+                }
+            });
+
+            taskWifi.addEventListener('click', (e) => {
+                e.stopPropagation();
+                volume.classList.add('animated', 'zoomOut');
+                wifi.style.display = 'inherit';
+                wifi.classList.add('animated', 'zoomIn');
+                setTimeout(() => {
+                    wifi.classList.remove('animated', 'zoomIn');
+                    volume.classList.remove('animated', 'zoomOut');
+                    volume.style.display = 'none';
+                }, 800);
+            });
+
+            taskVol.addEventListener('click', (e) => {
+                e.stopPropagation();
+                wifi.classList.add('animated', 'zoomOut');
+                volume.style.display = 'inherit';
+                volume.classList.add('animated', 'zoomIn');
+                setTimeout(() => {
+                    volume.classList.remove('animated', 'zoomIn');
+                    wifi.style.display = 'none';
+                    wifi.classList.remove('animated', 'zoomOut');
+                }, 800);
+            });
+        }
+
+        // Close dropdowns when clicking outside
+        document.body.addEventListener('click', () => {
+            if (wifi && volume) {
+                wifi.classList.add('animated', 'zoomOut');
+                volume.classList.add('animated', 'zoomOut');
+                setTimeout(() => {
+                    wifi.classList.remove('animated', 'zoomIn');
+                    volume.classList.remove('animated', 'zoomIn');
+                    wifi.classList.remove('animated', 'zoomOut');
+                    volume.classList.remove('animated', 'zoomOut');
+                    wifi.style.display = 'none';
+                    volume.style.display = 'none';
+                }, 800);
             }
-        }
-    });
+        });
 
-    ipcMain.on('terminal:close', () => {
-        if (terminalWindow) {
-            terminalWindow.close();
+        // Browser search functionality
+        const searchInput = document.getElementById('search');
+        const reloadButton = document.getElementById('reload');
+        const browserData = document.getElementById('browser_data');
+
+        if (searchInput && reloadButton && browserData) {
+            searchInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const urlString = e.target.value;
+                    const urlPattern = /^(http[s]?:\/\/){0,1}(www\.){0,1}[a-zA-Z0-9\.\-]+\.[a-zA-Z]{2,5}[\.]{0,1}/;
+                    
+                    if (urlPattern.test(urlString)) {
+                        window.api.send('browser:load-url', urlString);
+                    } else {
+                        window.api.send('browser:search', urlString);
+                    }
+                }
+            });
+
+            reloadButton.addEventListener('click', () => {
+                reloadButton.setAttribute('disabled', true);
+                reloadButton.classList.add('wheel');
+                setTimeout(() => {
+                    reloadButton.removeAttribute('disabled');
+                    reloadButton.classList.remove('wheel');
+                }, 1000);
+                window.api.send('browser:reload');
+            });
         }
-    });
+
+        // Update time every minute
+        function updateTime() {
+            window.api.invoke('time:get').then(timeData => {
+                const timeElement = document.getElementById('time');
+                if (timeElement) {
+                    timeElement.innerHTML = `${timeData.day} &nbsp;${timeData.time}`;
+                }
+            });
+        }
+
+        updateTime();
+        setInterval(updateTime, 60000);
+    }
 });

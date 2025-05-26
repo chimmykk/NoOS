@@ -56,6 +56,9 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="notification-bar">
                 <div>iPod</div>
                 <div class="battery"></div>
+                <button id="close-ipod-btn">
+                    <i class="material-icons" style="font-size: 12px;">close</i>
+                </button>
             </div>
             <ul class="menu">
                 <li data-view="songList"><a href="#" class="${currentMenuIndex === 0 ? 'active' : ''}">Music <span>></span></a></li>
@@ -70,6 +73,12 @@ document.addEventListener('DOMContentLoaded', () => {
         screenElement.innerHTML = menuHtml;
         currentView = 'menu';
         attachMenuListeners();
+        const closeBtn = document.getElementById('close-ipod-btn');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', function() {
+                window.close();
+            });
+        }
     }
 
     function renderSongList() {
@@ -77,6 +86,9 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="notification-bar">
                 <div>Music</div>
                 <div class="battery"></div>
+                <button id="close-ipod-btn">
+                    <i class="material-icons" style="font-size: 12px;">close</i>
+                </button>
             </div>
             <div class="song-list-view">
                 ${songs.map((song, index) => 
@@ -90,6 +102,12 @@ document.addEventListener('DOMContentLoaded', () => {
         screenElement.innerHTML = songListHtml;
         currentView = 'songList';
         attachSongListListeners();
+        const closeBtn = document.getElementById('close-ipod-btn');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', function() {
+                window.close();
+            });
+        }
     }
 
     function renderNowPlaying() {
@@ -98,6 +116,9 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="notification-bar">
                 <div>Now Playing</div>
                 <div class="battery"></div>
+                <button id="close-ipod-btn">
+                    <i class="material-icons" style="font-size: 12px;">close</i>
+                </button>
             </div>
             <div class="now-playing-view">
                  <div class="song-info">
@@ -135,6 +156,12 @@ document.addEventListener('DOMContentLoaded', () => {
         
         updateNowPlayingInfo();
         updateProgress();
+        const closeBtn = document.getElementById('close-ipod-btn');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', function() {
+                window.close();
+            });
+        }
     }
 
     function showView(view) {
@@ -218,6 +245,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function updatePlaybackStatus(status) {
         if(playbackStatusElement) playbackStatusElement.textContent = status;
     }
+
+    
 
     function togglePlayPause() {
         const currentPlayPauseBtn = document.querySelector('.vertical-button button:last-child');
@@ -365,13 +394,65 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Add event listener for the close button
-    const closeIpodBtn = document.getElementById('close-ipod-btn');
-    if (closeIpodBtn) {
-        closeIpodBtn.addEventListener('click', () => {
-            // Send message to main process to close the window
-            if (window.ipodControls && typeof window.ipodControls.closeIpodWindow === 'function') {
-                window.ipodControls.closeIpodWindow();
+    document.getElementById('close-ipod-btn').addEventListener('click', function() {
+        window.close();
+    });
+
+    // --- Manual Drag Functionality ---
+    const notificationBar = document.querySelector('.ipod-frame .screen .notification-bar');
+    let isDragging = false;
+    let offsetX, offsetY;
+    let initialWindowX, initialWindowY; // Store initial window position
+
+    if (notificationBar) {
+        notificationBar.addEventListener('mousedown', async (e) => { // Made function async
+            // Check if clicking on a non-draggable element (like buttons or battery)
+            if (e.target.closest('button') || e.target.closest('.battery')) {
+                return; // Don't start dragging if clicking controls or battery
             }
+
+            isDragging = true;
+
+            // Get initial window position
+            const currentWindow = require('@electron/remote').getCurrentWindow();
+            const windowId = currentWindow.id;
+            const position = await window.ipod.getPosition(windowId);
+            initialWindowX = position.x;
+            initialWindowY = position.y;
+
+            // Calculate the offset from the mouse pointer to the window's top-left corner
+            offsetX = e.clientX;
+            offsetY = e.clientY;
+
+            // Add event listeners for mousemove and mouseup to the whole document
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+
+            e.preventDefault(); // Prevent default behavior
         });
     }
+
+    function onMouseMove(e) {
+        if (!isDragging) return;
+
+        // Calculate the new absolute window position
+        const newX = initialWindowX + (e.clientX - offsetX);
+        const newY = initialWindowY + (e.clientY - offsetY);
+        
+        // Send the new absolute position to the main process via IPC
+        if (window.ipod && typeof window.ipod.move === 'function') {
+            window.ipod.move(newX, newY);
+        }
+    }
+
+    function onMouseUp() {
+        isDragging = false;
+        // Remove the event listeners
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+    }
+
+    // Ensure the notification bar has -webkit-app-region: drag; property in CSS
+    // and buttons/battery have -webkit-app-region: no-drag;
 });
+
